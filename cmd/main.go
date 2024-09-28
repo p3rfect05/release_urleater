@@ -42,25 +42,33 @@ func main() {
 
 	store, err := pgstore.NewPGStore(postgresConfig.PostgresURL(), []byte("secret-key")) // TODO make env for secret key
 
+	sessionStore := handlers.NewPostgresSessionStore(store)
+
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
+
 	defer store.Close()
 
 	defer store.StopCleanup(store.Cleanup(time.Minute * 5))
 
 	// handlers layer
-	e := handlers.GetRoutes(&handlers.Handlers{Service: srv, Store: store})
+	e := handlers.GetRoutes(&handlers.Handlers{Service: srv, Store: sessionStore})
+
 	httpValidator, err := validator.NewValidator()
+
 	if err != nil {
 		panic(err)
 	}
+
 	e.Validator = httpValidator
+
 	go func() {
 		if err := e.Start(port); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("could not start server: %v", err)
 		}
 	}()
+
 	quit := make(chan os.Signal, 1)
 
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)

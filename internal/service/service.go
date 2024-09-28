@@ -7,8 +7,11 @@ import (
 	"github.com/jackc/pgx/v4"
 	"golang.org/x/crypto/bcrypt"
 	"math/rand"
+	"net/mail"
+	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"urleater/internal/repository/postgresDB"
 )
 
@@ -47,7 +50,19 @@ func New(storage Storage) *Service {
 }
 
 func (s *Service) LoginUser(ctx context.Context, email string, password string) error {
+	email = strings.TrimSpace(email)
+	password = strings.TrimSpace(password)
+
+	if len(email) == 0 || len(password) == 0 {
+		return fmt.Errorf("LoginUser: email or password is empty")
+	}
+
+	if !validateEmail(email) {
+		return fmt.Errorf("LoginUser: invalid email format")
+	}
+
 	user, err := s.storage.GetUser(ctx, email)
+
 	if err != nil {
 		return fmt.Errorf("LoginUser: could not get user %w", err)
 	}
@@ -58,7 +73,56 @@ func (s *Service) LoginUser(ctx context.Context, email string, password string) 
 	return nil
 }
 
+func validatePassword(password string) bool {
+	// Проверка длины пароля (не меньше 8 символов)
+	if len(password) < 8 {
+		return false
+	}
+
+	// Проверка на наличие только допустимых символов
+	for _, char := range password {
+		if !(unicode.IsDigit(char) || isSpecialCharacter(char)) &&
+			(char < 'a' || char > 'z') && (char < 'A' || char > 'Z') {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Функция для проверки спецсимволов
+func isSpecialCharacter(char rune) bool {
+	specialCharacters := "!@#$%^&*()-_=+[]{}|;:'\",.<>?/`~"
+	for _, special := range specialCharacters {
+		if char == special {
+			return true
+		}
+	}
+	return false
+}
+
+func validateEmail(email string) bool {
+	_, err := mail.ParseAddress(email)
+
+	return err == nil
+}
+
 func (s *Service) RegisterUser(ctx context.Context, email string, password string) error {
+	email = strings.TrimSpace(email)
+	password = strings.TrimSpace(password)
+
+	if len(email) == 0 || len(password) == 0 {
+		return fmt.Errorf("RegisterUser: email or password is empty")
+	}
+
+	if !validatePassword(password) {
+		return fmt.Errorf("RegisterUser: invalid password format")
+	}
+
+	if !validateEmail(email) {
+		return fmt.Errorf("RegisterUser: invalid email format")
+	}
+
 	_, err := s.storage.GetUser(ctx, email)
 
 	switch {
@@ -78,11 +142,30 @@ func (s *Service) RegisterUser(ctx context.Context, email string, password strin
 
 	return nil
 }
+
+func validateLinkAlias(alias string) bool {
+	if len(alias) < 8 || len(alias) > 20 {
+		return false
+	}
+	for _, char := range alias {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && !unicode.IsDigit(char) {
+			return false
+		}
+	}
+
+	return true
+}
 func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink string, userEmail string) (*postgresDB.Link, error) {
+	if len(longLink) == 0 {
+		return nil, fmt.Errorf("CreateShortLink: longLink is empty")
+	}
 
 	var shortLink string
 
 	if alias != "" {
+		if !validateLinkAlias(alias) {
+			return nil, fmt.Errorf("CreateShortLink: invalid alias: %s", alias)
+		}
 		shortLink = alias
 	} else {
 		var err error

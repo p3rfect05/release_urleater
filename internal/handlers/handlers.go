@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/gorilla/sessions"
 	"log"
 	"net/http"
 	"strconv"
@@ -25,20 +26,30 @@ type Service interface {
 	DeleteShortLink(ctx context.Context, shortLink string, email string) error
 }
 
+type SessionStore interface {
+	RetrieveEmailFromSession(c echo.Context) (string, error)
+	Get(r *http.Request, key string) (*sessions.Session, error)
+	Save(c echo.Context, email string, session *sessions.Session) error
+}
+
 // TODO populate
 var domain string = "http://localhost:8080"
 
 type Handlers struct {
 	Service Service
-	Store   *pgstore.PGStore
+	Store   SessionStore
 }
 
-type redirectResponse struct {
-	redirectTo string
+type PostgresSessionStore struct {
+	store *pgstore.PGStore
 }
 
-func retrieveEmailFromSession(c echo.Context, store *pgstore.PGStore) (string, error) {
-	session, err := store.Get(c.Request(), "session_key")
+func NewPostgresSessionStore(store *pgstore.PGStore) SessionStore {
+	return &PostgresSessionStore{store}
+}
+
+func (pg *PostgresSessionStore) RetrieveEmailFromSession(c echo.Context) (string, error) {
+	session, err := pg.store.Get(c.Request(), "session_key")
 
 	if err != nil {
 		return "", fmt.Errorf("error getting session: %w", err)
@@ -51,6 +62,28 @@ func retrieveEmailFromSession(c echo.Context, store *pgstore.PGStore) (string, e
 	return res, nil
 }
 
+func (pg *PostgresSessionStore) Get(r *http.Request, key string) (*sessions.Session, error) {
+	session, err := pg.store.Get(r, key)
+
+	return session, err
+}
+
+func (db *PostgresSessionStore) Save(c echo.Context, email string, session *sessions.Session) error {
+	session.Values["email"] = email
+
+	err := session.Save(c.Request(), c.Response())
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type redirectResponse struct {
+	redirectTo string
+}
+
 // GetMainPage godoc
 //
 // @Summary Gets main page HTML
@@ -60,7 +93,7 @@ func retrieveEmailFromSession(c echo.Context, store *pgstore.PGStore) (string, e
 // @Failure 307 {} nil
 // @Router /	[get]
 func (h *Handlers) GetMainPage(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -89,7 +122,7 @@ type LoginRequest struct {
 //	@Failure		500			{} nil
 //	@Router			/login      [post]
 func (h *Handlers) PostLogin(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -181,7 +214,7 @@ type RegisterRequest struct {
 //	@Failure		500			{} nil
 //	@Router			/register      [post]
 func (h *Handlers) PostRegister(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -254,7 +287,7 @@ type CreateShortLinkResponse struct {
 //	@Failure		500			{} nil
 //	@Router			/create_link      [post]
 func (h *Handlers) CreateShortLink(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -307,7 +340,7 @@ type GetUserShortLinksResponse struct {
 //	@Failure		500			{} nil
 //	@Router			/get_links      [get]
 func (h *Handlers) GetUserShortLinks(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -356,7 +389,7 @@ func (h *Handlers) GetUserShortLinks(c echo.Context) error {
 // @Failure 307
 // @Router /login	[get]
 func (h *Handlers) GetLoginPage(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -378,7 +411,7 @@ func (h *Handlers) GetLoginPage(c echo.Context) error {
 // @Failure 307
 // @Router /register	[get]
 func (h *Handlers) GetRegisterPage(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -401,7 +434,7 @@ type UpdateUserShortLinksResponse struct {
 }
 
 func (h *Handlers) UpdateUserShortLinks(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -446,7 +479,7 @@ func (h *Handlers) UpdateUserShortLinks(c echo.Context) error {
 // @Failure 307
 // @Router /create_link	[get]
 func (h *Handlers) GetCreateShortLink(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -492,7 +525,7 @@ type GetSubscriptionsResponse struct {
 //	@Failure		500			{} nil
 //	@Router			/get_subscriptions      [get]
 func (h *Handlers) GetSubscriptions(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -526,7 +559,7 @@ func (h *Handlers) GetSubscriptions(c echo.Context) error {
 // @Failure 307
 // @Router /subscriptions	[get]
 func (h *Handlers) GetSubscriptionsPage(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -552,7 +585,7 @@ type GetUserResponse struct {
 //	@Failure		500			{} nil
 //	@Router			/user      [get]
 func (h *Handlers) GetUser(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
@@ -591,7 +624,7 @@ type DeleteShortLinkRequest struct {
 //	@Failure		500			{} nil
 //	@Router			/delete_link      [delete]
 func (h *Handlers) DeleteShortLink(c echo.Context) error {
-	email, err := retrieveEmailFromSession(c, h.Store)
+	email, err := h.Store.RetrieveEmailFromSession(c)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
