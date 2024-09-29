@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4"
-	"golang.org/x/crypto/bcrypt"
 	"math/rand"
 	"net/mail"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +26,7 @@ type Storage interface {
 	GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]postgresDB.Link, error)
 	UpdateUserLinks(ctx context.Context, email string, urlsDelta int) (*postgresDB.User, error)
 	GetSubscriptions(ctx context.Context) ([]postgresDB.Subscription, error)
+	VerifyUserPassword(ctx context.Context, email string, password string) error
 }
 
 var mutex = &sync.Mutex{}
@@ -61,15 +62,19 @@ func (s *Service) LoginUser(ctx context.Context, email string, password string) 
 		return fmt.Errorf("LoginUser: invalid email format")
 	}
 
-	user, err := s.storage.GetUser(ctx, email)
+	err := s.storage.VerifyUserPassword(ctx, email, password)
 
-	if err != nil {
-		return fmt.Errorf("LoginUser: could not get user %w", err)
-	}
+	switch {
+	case err == nil:
 
-	if err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+	case errors.Is(err, pgx.ErrNoRows):
 		return fmt.Errorf("LoginUser: invalid password")
+
+	default:
+		return fmt.Errorf("LoginUser: could not verify password %w", err)
+
 	}
+
 	return nil
 }
 
@@ -102,6 +107,11 @@ func isSpecialCharacter(char rune) bool {
 }
 
 func validateEmail(email string) bool {
+	for _, char := range email {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') && (char < '0' || char > '9') && !strings.Contains("!-.@#_", string(char)) {
+			return false
+		}
+	}
 	_, err := mail.ParseAddress(email)
 
 	return err == nil
@@ -155,9 +165,19 @@ func validateLinkAlias(alias string) bool {
 
 	return true
 }
+
+func IsValidUrl(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
+}
+
 func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink string, userEmail string) (*postgresDB.Link, error) {
 	if len(longLink) == 0 {
 		return nil, fmt.Errorf("CreateShortLink: longLink is empty")
+	}
+
+	if !IsValidUrl(longLink) {
+		return nil, fmt.Errorf("CreateShortLink: invalid longLink format")
 	}
 
 	var shortLink string

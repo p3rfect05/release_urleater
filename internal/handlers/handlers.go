@@ -162,9 +162,7 @@ func (h *Handlers) PostLogin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	session.Values["email"] = requestData.Email
-
-	if err = session.Save(c.Request(), c.Response()); err != nil {
+	if err = h.Store.Save(c, requestData.Email, session); err != nil {
 		log.Printf("Error saving session: %v\n", err)
 		return c.JSON(http.StatusInternalServerError, err.Error())
 
@@ -254,9 +252,7 @@ func (h *Handlers) PostRegister(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	session.Values["email"] = requestData.Email
-
-	if err = session.Save(c.Request(), c.Response()); err != nil {
+	if err = h.Store.Save(c, requestData.Email, session); err != nil {
 		log.Printf("Error saving session: %v\n", err)
 		return c.JSON(http.StatusInternalServerError, err.Error())
 

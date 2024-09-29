@@ -95,6 +95,21 @@ func (s *Storage) GetUser(ctx context.Context, email string) (*User, error) {
 	return &user, nil
 }
 
+func (s *Storage) VerifyUserPassword(ctx context.Context, email string, password string) error {
+	user, err := s.GetUser(ctx, email)
+
+	if err != nil {
+		return fmt.Errorf("VerifyUserPassword query error | %w", err)
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return fmt.Errorf("VerifyUserPassword query error | %w", err)
+	}
+
+	return nil
+}
+
 func (s *Storage) UpdateUserLinks(ctx context.Context, email string, urlsDelta int) (*User, error) {
 	var user User
 

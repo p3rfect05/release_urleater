@@ -75,6 +75,24 @@ func (_m *SessionStore) RetrieveEmailFromSession(c echo.Context) (string, error)
 	return r0, r1
 }
 
+// Save provides a mock function with given fields: c, email, session
+func (_m *SessionStore) Save(c echo.Context, email string, session *sessions.Session) error {
+	ret := _m.Called(c, email, session)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Save")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(echo.Context, string, *sessions.Session) error); ok {
+		r0 = rf(c, email, session)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewSessionStore creates a new instance of SessionStore. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewSessionStore(t interface {

@@ -11,7 +11,7 @@ func (s *createShortLinkSuite) TestCreateShortLink() {
 	longUrl1 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
 
 	body, code := s.CreateShortLink(&handlers.CreateShortLinkRequest{
-		ShortURL: "any_alias",
+		ShortURL: "anyalias",
 		LongURL:  longUrl1,
 	})
 
@@ -33,7 +33,7 @@ func (s *createShortLinkSuite) TestCreateShortLink() {
 	s.Equal(http.StatusInternalServerError, code)
 
 	// 3
-	_, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
+	body, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
 		ShortURL: "any_alias",
 		LongURL:  "",
 	})
@@ -41,14 +41,23 @@ func (s *createShortLinkSuite) TestCreateShortLink() {
 	s.Equal(http.StatusInternalServerError, code)
 
 	// 4
-	longUrl2 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
-	_, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
-		ShortURL: "any_alias",
-		LongURL:  longUrl2,
+	longUrl4 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
+	alias4 := "myAlias1"
+
+	body, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
+		ShortURL: alias4,
+		LongURL:  longUrl4,
 	})
 
+	var resp4 handlers.CreateShortLinkResponse
+
+	err = json.Unmarshal(body, &resp4)
+
+	s.NoError(err)
+
 	s.Equal(http.StatusOK, code)
-	s.Equal(longUrl2, resp1.Link.LongUrl)
+	s.Equal(longUrl4, resp4.Link.LongUrl)
+	s.Assert().Equal(resp4.Link.ShortUrl, alias4)
 
 	// 5
 	_, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
@@ -67,12 +76,23 @@ func (s *createShortLinkSuite) TestCreateShortLink() {
 	s.Equal(http.StatusInternalServerError, code)
 
 	// 8
-	_, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
-		ShortURL: "myCustomAlias1234567",
-		LongURL:  "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset",
+	longUrl8 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
+	alias8 := "myCustomAlias1234567"
+
+	body, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
+		ShortURL: alias8,
+		LongURL:  longUrl8,
 	})
 
+	var resp8 handlers.CreateShortLinkResponse
+
+	err = json.Unmarshal(body, &resp8)
+
+	s.NoError(err)
+
 	s.Equal(http.StatusOK, code)
+	s.Equal(longUrl8, resp8.Link.LongUrl)
+	s.Assert().Equal(resp8.Link.ShortUrl, alias8)
 
 	// 9
 	_, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{

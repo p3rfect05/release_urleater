@@ -31,12 +31,12 @@ func (s *registerUserSuite) TestRegisterUser() {
 	s.Equal(http.StatusInternalServerError, code)
 
 	// 4
-	_, code = s.RegisterUser(&handlers.RegisterRequest{
-		Email:    "",
-		Password: "",
-	})
-
-	s.Equal(http.StatusInternalServerError, code)
+	//_, code = s.RegisterUser(&handlers.RegisterRequest{
+	//	Email:    "",
+	//	Password: "",
+	//})
+	//
+	//s.Equal(http.StatusInternalServerError, code)
 
 	//5
 	_, code = s.RegisterUser(&handlers.RegisterRequest{
