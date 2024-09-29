@@ -153,6 +153,7 @@ func (s *Storage) CreateShortLink(ctx context.Context, shortLink string, longLin
 		&link.ShortUrl,
 		&link.LongUrl,
 		&link.ExpiresAt)
+
 	if err != nil {
 		return nil, fmt.Errorf("CreateShortLink query error | %w", err)
 	}
@@ -323,4 +324,25 @@ func (s *Storage) GetSubscriptions(ctx context.Context) ([]Subscription, error) 
 
 	return subscriptions, nil
 
+}
+
+func (s *Storage) CreateSubscriptions(ctx context.Context) error {
+	query, args, err := s.queryBuilder.Insert("subscriptions").
+		Columns("name", "total_urls").
+		Values("Bronze", 1000).
+		Values("Silver", 5000).
+		Values("Gold", 10000).
+		ToSql()
+
+	if err != nil {
+		return fmt.Errorf("CreateSubscriptions query build error | %w", err)
+	}
+
+	_, err = s.pgxPool.Exec(ctx, query, args...)
+
+	if err != nil {
+		return fmt.Errorf("CreateShortLink query error | %w", err)
+	}
+
+	return nil
 }

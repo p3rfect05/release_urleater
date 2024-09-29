@@ -55,6 +55,12 @@ func main() {
 	// handlers layer
 	e := handlers.GetRoutes(&handlers.Handlers{Service: srv, Store: sessionStore})
 
+	err = srv.CreateSubscriptions(serverCtx)
+
+	if err != nil {
+		log.Println(err.Error())
+	}
+
 	httpValidator, err := validator.NewValidator()
 
 	if err != nil {

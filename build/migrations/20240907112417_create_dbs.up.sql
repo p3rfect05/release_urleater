@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS urls (
 
 
 CREATE TABLE IF NOT EXISTS subscriptions (
-    id int PRIMARY KEY,
+    id int PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     name varchar NOT NULL,
     total_urls int NOT NULL
 );

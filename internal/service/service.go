@@ -27,6 +27,7 @@ type Storage interface {
 	UpdateUserLinks(ctx context.Context, email string, urlsDelta int) (*postgresDB.User, error)
 	GetSubscriptions(ctx context.Context) ([]postgresDB.Subscription, error)
 	VerifyUserPassword(ctx context.Context, email string, password string) error
+	CreateSubscriptions(ctx context.Context) error
 }
 
 var mutex = &sync.Mutex{}
@@ -300,6 +301,16 @@ func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email s
 
 	if err != nil {
 		return fmt.Errorf("DeleteShortLink: error while deleting short link %s with email %s: %w", shortLink, email, err)
+	}
+
+	return nil
+}
+
+func (s *Service) CreateSubscriptions(ctx context.Context) error {
+	err := s.storage.CreateSubscriptions(ctx)
+
+	if err != nil {
+		return fmt.Errorf("CreateSubscriptions: error while creating subscriptions %w", err)
 	}
 
 	return nil

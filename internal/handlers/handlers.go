@@ -24,6 +24,7 @@ type Service interface {
 	GetShortLink(ctx context.Context, shortLink string) (*postgresDB.Link, error)
 	GetUser(ctx context.Context, email string) (*postgresDB.User, error)
 	DeleteShortLink(ctx context.Context, shortLink string, email string) error
+	CreateSubscriptions(ctx context.Context) error
 }
 
 type SessionStore interface {
