@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Авторизация</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .login-form {
+            max-width: 400px;
+            width: 100%;
+            padding: 20px;
+            border-radius: 8px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+<div class="login-form">
+    <h3 class="text-center mb-4">Вход</h3>
+    <form>
+        <div class="mb-3">
+            <label for="email" class="form-label">Электронная почта</label>
+            <input type="email" class="form-control" id="email" placeholder="Введите вашу почту">
+        </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Пароль</label>
+            <input type="password" class="form-control" id="password" placeholder="Введите пароль">
+        </div>
+        <button type="button" class="btn btn-primary w-100" onclick="handleLogin()">Войти</button>
+    </form>
+</div>
+
+<script>
+    const domain = "http://localhost:8080"
+
+    function validateEmail(email) {
+        return String(email)
+            .toLowerCase()
+            .match(
+                /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|.(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+            );
+    }
+
+    function handleLogin() {
+        // Получаем значения полей
+        const email = document.getElementById('email');
+        const password = document.getElementById('password');
+
+
+        // Проверяем, что поля не пустые
+        if (!email.value || !password.value) {
+            alert('Пожалуйста, заполните все поля!');
+            return;
+        }
+
+        if(!validateEmail(email.value)) {
+            alert("Неверный формат email")
+            return;
+        }
+
+        let user = {
+            email: email.value,
+            password: password.value
+        }
+
+        fetch(`${domain}/login`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(user)
+        }).then(response => response.json()
+            ).then(data => {
+            console.log(data, "redirect_to" in data)
+                if ("redirectTo" in data) {
+                    window.location.replace(domain + data.redirectTo)
+                } else {
+
+                    email.style.border = "1px solid red"
+                    password.style.border = "1px solid red"
+
+                    alert("Incorrect login or password")
+                }
+            }
+        )
+    }
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

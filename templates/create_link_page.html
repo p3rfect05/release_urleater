@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Link Page</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      padding-top: 56px; /* Чтобы контент не перекрывался навбаром */
+    }
+    .navbar-nav .nav-link.active {
+      font-weight: bold;
+      color: #0d6efd !important;
+    }
+
+    #copy_button:hover {
+      background-color: lightgrey;
+    }
+
+  </style>
+</head>
+<body>
+<!-- Навигационная панель (NavBar) -->
+<nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">Url Eater</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="/" id="main_page">Main Page</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/create_link" id="my_link">My Links</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/subscriptions" id="sub">Subscriptions</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" id="username"></a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/logout" id="logout-link">Logout</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- Основное содержимое страницы -->
+<div class="container mt-5">
+  <h3 class="mb-3">Create a Custom Link</h3>
+
+
+  <div class="input-group mb-3">
+    <input type="text" id="longUrl" class="form-control" placeholder="Enter your url here" aria-label="Custom path" aria-describedby="basic-addon3">
+  </div>
+
+  <div class="mb-3">
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="aliasOption" id="customAlias" value="custom" checked>
+      <label class="form-check-label" for="customAlias">Custom Alias</label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="radio" name="aliasOption" id="autoGenerate" value="auto">
+      <label class="form-check-label" for="autoGenerate">Generate Automatically</label>
+    </div>
+  </div>
+
+  <div class="input-group mb-3" id="custom_input_div">
+    <span class="input-group-text" id="domain_part"></span>
+    <input type="text" id="customPath" class="form-control" placeholder="Enter custom part (8 symbols, digits or english letters)" aria-label="Custom path" aria-describedby="basic-addon3">
+    <button class="btn btn-primary" id="generateBtn" onclick="createLink()">Create Link</button>
+  </div>
+
+  <!-- Display the generated link -->
+  <div id="generatedLink" class="mt-3" style="display:none;">
+    <strong>Generated Link:</strong> <a href="#" id="finalLink" target="_blank"></a>
+  </div>
+</div>
+
+<div class="modal fade" id="myModal" tabindex="-1" aria-labelledby="myModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="myModalLabel">New created URL</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-3" id="modal_div" style="width: 80%;margin: auto">
+          <input type="text" id="modal_content" class="form-control" placeholder="Recipient's username" aria-label="Recipient's username" aria-describedby="basic-addon2">
+          <span class="input-group-text" id="copy_button">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
+                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/>
+                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z" />
+              </svg>
+          </span>
+        </div>
+        <div style="width: 80%;margin: auto">
+          <h2 id="qr_code_header">
+
+          </h2>
+          <div id="qr_code">
+
+          </div>
+        </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<!-- Скрипт для управления подсветкой активной страницы -->
+<script>
+  const domain = "http://localhost:8080"
+
+
+  let copy_button = document.getElementById("copy_button")
+  copy_button.addEventListener('click', function ()  {
+
+    let successful_copy = document.createElement("span")
+
+
+    copy_button.after(successful_copy)
+
+    let copyText = document.getElementById("modal_content").value
+
+    navigator.clipboard.writeText(copyText)
+    // Alert the copied text
+    alert("Copied the text: " + copyText);
+  })
+
+  document.querySelector(".btn-close").addEventListener("click", function (){
+    console.log(document.querySelector("#qr_code img"))
+    document.querySelector("#qr_code img").remove()
+    document.getElementById("qr_code_header").textContent = ""
+
+  })
+
+
+
+
+  function validateLongUrl(string) {
+    try {
+      const newUrl = new URL(string);
+      return newUrl.protocol === 'http:' || newUrl.protocol === 'https:';
+    } catch (err) {
+      return false;
+    }
+  }
+
+
+  function createLink(){
+    let longUrl = document.getElementById("longUrl").value
+
+    if(!longUrl) {
+      alert('Пожалуйста, заполните поле с исходным адресом!');
+      return;
+    }
+
+    if(!validateLongUrl(longUrl)) {
+      alert('Неверный формат исходного адреса');
+      return;
+    }
+
+  let short_url = ""
+    if (generateButton.checked === true) {
+
+    } else if(customAlias.checked === true) {
+      if(shortLinkInput.value.length < 8 || shortLinkInput.value.length > 20) {
+        alert('Длина короткого идентификатора должна быть от 8 до 20 символов');
+        return;
+      }
+
+
+        if (!String(shortLinkInput.value)
+                .toLowerCase()
+                .match(
+                        /^[a-zA-Z0-9]+$/i
+                )) {
+          alert('Коротка ссылка должна состоять из цифр или английских больших или маленьких букв');
+          return;
+        }
+
+
+      if(!shortLinkInput.value) {
+        alert('Пожалуйста, заполните поле с идентификатором или выберите автоматическую генерацию!');
+        return;
+      }
+
+
+      short_url = shortLinkInput.value
+
+    } else {
+      alert('Пожалуйста, выберите способ создания короткой ссылки!');
+      return;
+    }
+
+    let url = {
+      short_url: short_url,
+      long_url: longUrl
+    }
+    fetch(`${domain}/create_link`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(url)
+    }).then(response => response.json()
+        )
+        .then(data => {
+          console.log(data)
+          if(data.link.ShortUrl) {
+            showModal(data.link.ShortUrl)
+
+
+            let qr_code_header = document.getElementById("qr_code_header")
+
+            qr_code_header.textContent = "Scan QR Code now!"
+            qr_code_header.style.textAlign = "center"
+
+            document.getElementById("qr_code").before(qr_code_header)
+
+            new QRCode("qr_code", {
+              text: `${domain}/${data.link.ShortUrl}`,
+              width: 256,
+              height: 256,
+              colorDark : "#000000",
+              colorLight : "#ffffff",
+              correctLevel : QRCode.CorrectLevel.H
+            });
+
+
+
+            let qr_code_img = document.querySelector("#qr_code img")
+
+            qr_code_img.style.margin = "auto"
+
+          }
+          else {
+            shortLinkInput.style.border = "1px solid red"
+
+            alert("Short link incorrect or already exists")
+          }
+        })
+
+
+  }
+
+  function showModal(message) {
+    // Set the message in the modal body
+    document.getElementById('modal_content').value = `${domain}/${message}`;
+
+    // Initialize and show the modal
+    var myModal = new bootstrap.Modal(document.getElementById('myModal'), {
+      keyboard: false // Optional: allows modal to be closed with keyboard
+    });
+    myModal.show();
+  }
+
+
+  function setActiveLink(relative_path) {
+    var link = document.querySelector(`a[href="${relative_path}"]`)
+    if(link) {
+      link.classList.add('active')
+    }
+
+    }
+
+
+  // Пример: при загрузке страницы подсвечивается "Main Page"
+  document.addEventListener('DOMContentLoaded', function() {
+    let domain_part = document.getElementById("domain_part")
+
+    domain_part.textContent = domain + "/"
+
+    console.log(window.location.pathname)
+    setActiveLink(window.location.pathname);
+
+    fetch(`${domain}/user`).then(response => response.json()
+    ).then(data => {
+              console.log(data, "redirect_to" in data)
+              if ("redirectTo" in data) {
+                window.location.replace(domain + data.redirectTo)
+                return;
+              } else {
+
+                document.getElementById("username").textContent = data.user.Email.split("@")[0]
+              }
+            }
+    )
+  })
+
+  let shortLinkInput = document.getElementById("customPath")
+
+  let generateButton = document.getElementById("autoGenerate")
+
+  generateButton.addEventListener('click', function (){
+    shortLinkInput.disabled = true
+    shortLinkInput.value = "<this part will be generated automatically>"
+  })
+
+  let customAlias = document.getElementById("customAlias")
+
+  customAlias.addEventListener('click', function(){
+    shortLinkInput.disabled = false
+    shortLinkInput.value = ""
+  })
+
+
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.js" integrity="sha512-is1ls2rgwpFZyixqKFEExPHVUUL+pPkBEPw47s/6NDQ4n1m6T/ySeDW3p54jp45z2EJ0RSOgilqee1WhtelXfA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</body>
+</html>

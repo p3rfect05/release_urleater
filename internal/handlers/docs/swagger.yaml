@@ -1,0 +1,9 @@
+basePath: /api/v1
+host: localhost:80
+info:
+  contact: {}
+  description: Это описание API для работы с каталогом автомобилей
+  title: URLEater Swagger API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

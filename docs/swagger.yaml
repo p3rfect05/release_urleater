@@ -1,0 +1,319 @@
+definitions:
+  handlers.CreateShortLinkResponse:
+    properties:
+      link:
+        $ref: '#/definitions/postgresDB.Link'
+    type: object
+  handlers.DeleteShortLinkRequest:
+    properties:
+      short_link:
+        type: string
+    type: object
+  handlers.GetSubscriptionsResponse:
+    properties:
+      subscriptions:
+        items:
+          $ref: '#/definitions/postgresDB.Subscription'
+        type: array
+    type: object
+  handlers.GetUserResponse:
+    properties:
+      user:
+        $ref: '#/definitions/postgresDB.User'
+    type: object
+  handlers.GetUserShortLinksResponse:
+    properties:
+      links:
+        items:
+          $ref: '#/definitions/postgresDB.Link'
+        type: array
+      user:
+        $ref: '#/definitions/postgresDB.User'
+    type: object
+  handlers.redirectResponse:
+    type: object
+  postgresDB.Link:
+    properties:
+      expiresAt:
+        type: string
+      longUrl:
+        type: string
+      shortUrl:
+        type: string
+      userEmail:
+        type: string
+    type: object
+  postgresDB.Subscription:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+      totalUrls:
+        type: integer
+    type: object
+  postgresDB.User:
+    properties:
+      email:
+        type: string
+      passwordHash:
+        type: string
+      urlsLeft:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /:
+    get:
+      parameters:
+      - description: Short link to get
+        in: path
+        name: ShortLink
+        required: true
+        type: string
+      responses:
+        "307":
+          description: Temporary Redirect
+          schema:
+            $ref: '#/definitions/handlers.DeleteShortLinkRequest'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+      summary: Gets short link
+  /create_link:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: OK
+        "307":
+          description: Temporary Redirect
+        "500":
+          description: Internal Server Error
+      summary: Gets create link page HTML
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Short URL
+        in: body
+        name: short_url
+        required: true
+        schema:
+          type: string
+      - description: Long URL
+        in: body
+        name: long_url
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CreateShortLinkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Creates a link
+  /delete_link:
+    delete:
+      parameters:
+      - description: Short link to delete
+        in: body
+        name: ShortLink
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.DeleteShortLinkRequest'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Tries to delete the short link
+  /get_links:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Limit of a number of user's short links
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: Maximum amount of links to show
+        in: query
+        name: offset
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetUserShortLinksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Gets user's short links
+  /get_subscriptions:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetSubscriptionsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Gets all subscriptions
+  /login:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: OK
+        "307":
+          description: Temporary Redirect
+        "500":
+          description: Internal Server Error
+      summary: Gets login page HTML
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: body
+        name: username
+        required: true
+        schema:
+          type: string
+      - description: Password
+        in: body
+        name: password
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.redirectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Logins a user
+  /logout:
+    get:
+      responses:
+        "307":
+          description: Temporary Redirect
+          schema:
+            $ref: '#/definitions/handlers.redirectResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Logs out a user
+  /register:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: OK
+        "307":
+          description: Temporary Redirect
+        "500":
+          description: Internal Server Error
+      summary: Gets register page HTML
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: body
+        name: username
+        required: true
+        schema:
+          type: string
+      - description: Password
+        in: body
+        name: password
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.redirectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Registers a user
+  /subscriptions:
+    get:
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: OK
+        "307":
+          description: Temporary Redirect
+        "500":
+          description: Internal Server Error
+      summary: Gets subscription page HTML
+  /user:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.GetUserResponse'
+        "400":
+          description: Bad Request
+          schema:
+            type: ""
+        "500":
+          description: Internal Server Error
+          schema:
+            type: ""
+      summary: Gets user from session
+swagger: "2.0"
