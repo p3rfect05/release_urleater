@@ -28,7 +28,8 @@ func (s *Storage) CreateUser(ctx context.Context, email string, password string)
 	if err != nil {
 		return err
 	}
-	query, args, err := s.queryBuilder.Insert("users").
+	query, args, err := s.queryBuilder.
+		Insert("users").
 		Columns("email", "password_hash", "created_at").
 		Values(email, passwordHash, time.Now().UTC().Format(time.RFC3339)).
 		ToSql()
@@ -110,14 +111,17 @@ func (s *Storage) VerifyUserPassword(ctx context.Context, email string, password
 	return nil
 }
 
-func (s *Storage) UpdateUserLinks(ctx context.Context, email string, urlsDelta int) (*User, error) {
+func (s *Storage) UpdateUserLinks(ctx context.Context, email string, newUrlsNumber int) (*User, error) {
 	var user User
 
 	query, args, err := s.queryBuilder.
 		Update("users").
-		Set("urls_left", squirrel.Expr("IF(urls_left + ? >= 0, urls_left + ?, 0)", urlsDelta, urlsDelta)).
+		Set("urls_left", newUrlsNumber).
 		Where(squirrel.Eq{"email": email}).
+		Suffix("RETURNING users.email, users.urls_left").
 		ToSql()
+
+	fmt.Println(query, args)
 
 	if err != nil {
 		return nil, fmt.Errorf("UpdateUserLinks query error | %w", err)
@@ -125,7 +129,6 @@ func (s *Storage) UpdateUserLinks(ctx context.Context, email string, urlsDelta i
 
 	err = s.pgxPool.QueryRow(ctx, query, args...).Scan(
 		&user.Email,
-		&user.PasswordHash,
 		&user.UrlsLeft,
 	)
 
@@ -189,7 +192,7 @@ func (s *Storage) GetShortLink(ctx context.Context, shortLink string) (*Link, er
 }
 
 func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]Link, error) {
-	var links []Link
+	var links = make([]Link, 0)
 
 	query, args, err := s.queryBuilder.
 		Select(
@@ -199,8 +202,8 @@ func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 			"l.expires_at",
 		).
 		From("urls l").
-		Join("users u ON urls.user_email = users.email").
-		Where(squirrel.Eq{"urls.user_email": email}).
+		Join("users u ON l.user_email = u.email").
+		Where(squirrel.Eq{"l.user_email": email}).
 		Offset(uint64(offset)).
 		Limit(uint64(limit)).
 		ToSql()
@@ -235,6 +238,32 @@ func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 	}
 
 	return links, nil
+}
+
+func (s *Storage) GetTotalUserLinksNumber(ctx context.Context, email string) (int, error) {
+	query, args, err := s.queryBuilder.
+		Select(
+			"COUNT(*)",
+		).
+		From("urls l").
+		Join("users u ON l.user_email = u.email").
+		Where(squirrel.Eq{"l.user_email": email}).
+		ToSql()
+
+	if err != nil {
+		return 0, fmt.Errorf("GetTotalUserLinksNumber query build error | %w", err)
+	}
+
+	var totalUserLinks int
+
+	err = s.pgxPool.QueryRow(ctx, query, args...).Scan(
+		&totalUserLinks)
+
+	if err != nil {
+		return 0, fmt.Errorf("GetTotalUserLinksNumber query error | %w", err)
+	}
+
+	return totalUserLinks, nil
 }
 
 func (s *Storage) DeleteShortLink(ctx context.Context, shortLink string, email string) error {

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 	_ "urleater/docs"
 	"urleater/internal/repository/postgresDB"
 
@@ -25,6 +26,7 @@ type Service interface {
 	GetUser(ctx context.Context, email string) (*postgresDB.User, error)
 	DeleteShortLink(ctx context.Context, shortLink string, email string) error
 	CreateSubscriptions(ctx context.Context) error
+	GetTotalUserLinks(ctx context.Context, email string) (int, error)
 }
 
 type SessionStore interface {
@@ -105,6 +107,20 @@ func (h *Handlers) GetMainPage(c echo.Context) error {
 	}
 
 	return c.Render(http.StatusOK, "main_page.html", nil)
+}
+
+func (h *Handlers) GetLinksPage(c echo.Context) error {
+	email, err := h.Store.RetrieveEmailFromSession(c)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	if email == "" {
+		return c.Redirect(http.StatusTemporaryRedirect, "/login")
+	}
+
+	return c.Render(http.StatusOK, "links_list.html", nil)
 }
 
 type LoginRequest struct {
@@ -321,9 +337,15 @@ func (h *Handlers) CreateShortLink(c echo.Context) error {
 	})
 }
 
+type FormattedLink struct {
+	ShortUrl  string
+	LongUrl   string
+	UserEmail string
+	ExpiresAt string
+}
 type GetUserShortLinksResponse struct {
-	Links []postgresDB.Link `json:"links"`
-	User  postgresDB.User   `json:"user"`
+	Links []FormattedLink `json:"links"`
+	User  postgresDB.User `json:"user"`
 }
 
 // GetUserShortLinks godoc
@@ -351,7 +373,11 @@ func (h *Handlers) GetUserShortLinks(c echo.Context) error {
 
 	limitParam, offsetParam := c.QueryParam("limit"), c.QueryParam("offset")
 
-	limit, err := strconv.Atoi(limitParam)
+	var limit int
+
+	if limitParam != "" {
+		limit, err = strconv.Atoi(limitParam)
+	}
 
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, err.Error())
@@ -371,9 +397,50 @@ func (h *Handlers) GetUserShortLinks(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
+	user.PasswordHash = ""
+
+	var formattedLinks []FormattedLink
+	for _, l := range links {
+		formattedLinks = append(formattedLinks, FormattedLink{
+			ShortUrl:  l.ShortUrl,
+			LongUrl:   l.LongUrl,
+			UserEmail: l.UserEmail,
+			ExpiresAt: l.ExpiresAt.Format(time.DateTime),
+		})
+	}
 	return c.JSON(http.StatusOK, GetUserShortLinksResponse{
-		Links: links,
+		Links: formattedLinks,
 		User:  *user,
+	})
+}
+
+type GetUserShortLinksTotalNumberResponse struct {
+	TotalUserShortLinks int `json:"total_user_short_links"`
+}
+
+func (h *Handlers) GetUserShortLinksNumber(c echo.Context) error {
+	email, err := h.Store.RetrieveEmailFromSession(c)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	if email == "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"redirectTo": "/login",
+		})
+	}
+
+	ctx := c.Request().Context()
+
+	totalUserLinks, err := h.Service.GetTotalUserLinks(ctx, email)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, GetUserShortLinksTotalNumberResponse{
+		TotalUserShortLinks: totalUserLinks,
 	})
 }
 

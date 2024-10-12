@@ -24,10 +24,11 @@ type Storage interface {
 	DeleteShortLink(ctx context.Context, shortLink string, email string) error
 	ExtendShortLink(ctx context.Context, shortLink string, expiresAt time.Time) (*postgresDB.Link, error)
 	GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]postgresDB.Link, error)
-	UpdateUserLinks(ctx context.Context, email string, urlsDelta int) (*postgresDB.User, error)
+	UpdateUserLinks(ctx context.Context, email string, newUrlsNumber int) (*postgresDB.User, error)
 	GetSubscriptions(ctx context.Context) ([]postgresDB.Subscription, error)
 	VerifyUserPassword(ctx context.Context, email string, password string) error
 	CreateSubscriptions(ctx context.Context) error
+	GetTotalUserLinksNumber(ctx context.Context, email string) (int, error)
 }
 
 var mutex = &sync.Mutex{}
@@ -227,12 +228,28 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 	default:
 		return nil, fmt.Errorf("CreateShortLink: shortlink already exists")
 	}
+	user, err := s.storage.GetUser(ctx, userEmail)
+
+	if err != nil {
+		return nil, fmt.Errorf("CreateShortLink: could not get user: %w", err)
+	}
+
+	if user.UrlsLeft == 0 {
+		return nil, fmt.Errorf("CreateShortLink: user %s has no urls", userEmail)
+	}
+
+	_, err = s.storage.UpdateUserLinks(ctx, userEmail, user.UrlsLeft-1)
+
+	if err != nil {
+		return nil, fmt.Errorf("CreateShortLink: error while updating user links for short link %s | %w", shortLink, err)
+	}
 
 	link, err := s.storage.CreateShortLink(ctx, shortLink, longLink, userEmail)
 
 	if err != nil {
-		return nil, fmt.Errorf("CreateShortLink: error while creating a short link %s", shortLink)
+		return nil, fmt.Errorf("CreateShortLink: error while creating a short link %s | %w", shortLink, err)
 	}
+
 	return link, nil
 }
 
@@ -260,20 +277,36 @@ func (s *Service) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 	user, err := s.storage.GetUser(ctx, email)
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("GetAllUserShortLinks: error while getting user %s: %w", email, err)
+		return nil, nil, fmt.Errorf("GetUserShortLinksWithOffsetAndLimit: error while getting user %s: %w", email, err)
+	}
+
+	if limit == 0 || limit > 50 {
+		limit = 50
 	}
 
 	links, err := s.storage.GetUserShortLinksWithOffsetAndLimit(ctx, email, offset, limit)
 
 	switch {
+	case err == nil:
+
 	case errors.Is(err, pgx.ErrNoRows):
 
 	default:
-		return nil, nil, fmt.Errorf("GetAllUsersShortLinks: error while getting all user's %s shortlinks: %w", email, err)
+		return nil, nil, fmt.Errorf("GetUserShortLinksWithOffsetAndLimit: error while getting all user's %s shortlinks: %w", email, err)
 	}
 
 	return links, user, nil
 
+}
+
+func (s *Service) GetTotalUserLinks(ctx context.Context, email string) (int, error) {
+	totalUserLinks, err := s.storage.GetTotalUserLinksNumber(ctx, email)
+
+	if err != nil {
+		return 0, fmt.Errorf("GetTotalUserLinks: %w", err)
+	}
+
+	return totalUserLinks, nil
 }
 
 func (s *Service) UpdateUserShortLinks(ctx context.Context, email string, deltaLinks int) (*postgresDB.User, error) {

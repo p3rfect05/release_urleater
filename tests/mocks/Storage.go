@@ -64,6 +64,24 @@ func (_m *Storage) CreateShortLink(ctx context.Context, shortLink string, longLi
 	return r0, r1
 }
 
+// CreateSubscriptions provides a mock function with given fields: ctx
+func (_m *Storage) CreateSubscriptions(ctx context.Context) error {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CreateSubscriptions")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CreateUser provides a mock function with given fields: ctx, email, password
 func (_m *Storage) CreateUser(ctx context.Context, email string, password string) error {
 	ret := _m.Called(ctx, email, password)

@@ -1,80 +1,201 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>URL Shortener</title>
+  <title>My links</title>
+  <!-- Подключение Bootstrap CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-
+  <style>
+    body {
+      padding-top: 56px; /* Чтобы контент не перекрывался навбаром */
+    }
+    .navbar-nav .nav-link.active {
+      font-weight: bold;
+      color: #0d6efd !important;
+    }
+  </style>
 </head>
 <body>
-
-<div class="container mt-5" style="width: 60%">
-  <h1 class="mb-4">My URLs</h1>
-
-  <div class="card mb-3">
-    <div class="card-body">
-      <p class="card-text mb-2">
-        <strong>Long URL:</strong>
-        <a href="https://example.com/this-is-a-very-long-url-that-keeps-going-and-going" target="_blank" class="text-decoration-none">
-          https://example.com/this-is-a-very-long-url-that-keeps-going-and-going
-        </a>
-      </p>
-      <div class="d-flex justify-content-between align-items-center">
-        <p class="card-text mb-0">
-          <strong>Short URL:</strong>
-          <a href="https://short.ly/abc123" target="_blank" class="text-primary">
-            https://short.ly/abc123
-          </a>
-        </p>
-        <span class="text-muted">Expires at: 2024-12-31</span>
-      </div>
-      <div class="d-flex justify-content-end mt-3">
-        <button class="btn btn-danger btn-sm">Delete</button>
-      </div>
+<nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="#">Url Eater</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="/" id="main_page">Main Page</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/create_link" id="create_link">Create Link</a>
+        </li>
+        <li>
+          <a class="nav-link" href="/my_links" id="my_links">My Links</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/subscriptions" id="sub">Subscriptions</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" id="username"></a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/logout" id="logout-link">Logout</a>
+        </li>
+      </ul>
     </div>
   </div>
+</nav>
+<div class="container mt-5">
+  <h1 class="mb-4" id="display_number_of_links"></h1>
 
-  <div class="card mb-3">
-    <div class="card-body">
-      <p class="card-text mb-2">
-        <strong>Long URL:</strong>
-        <a href="https://anotherexample.com/this-is-another-long-url-example-to-be-shortened" target="_blank" class="text-decoration-none">
-          https://anotherexample.com/this-is-another-long-url-example-to-be-shortened
-        </a>
-      </p>
-      <div class="d-flex justify-content-between align-items-center">
-        <p class="card-text mb-0">
-          <strong>Short URL:</strong>
-          <a href="https://short.ly/xyz789" target="_blank" class="text-primary">
-            https://short.ly/xyz789
-          </a>
-        </p>
-        <span class="text-muted">Expires at: 2024-11-15</span>
-      </div>
-      <div class="d-flex justify-content-end mt-3">
-        <button class="btn btn-danger btn-sm">Delete</button>
-      </div>
+  <div id="elements-container" class="row"></div>
+
+  <!-- Пагинация -->
+  <nav aria-label="Pagination" class="mt-4">
+    <div id="total_pages">
+      <h1 style="text-align: center"></h1>
     </div>
-  </div>
+    <ul class="pagination justify-content-center">
+      <li class="page-item">
+        <button class="page-link" id="prev-button" onclick="prevPage()">Предыдущая</button>
+      </li>
+      <li class="page-item">
+        <button class="page-link" id="next-button" onclick="nextPage()">Следующая</button>
+      </li>
+    </ul>
 
+  </nav>
 </div>
 
-<nav aria-label="Page navigation example">
-  <ul class="pagination justify-content-center mt-4">
-    <li class="page-item disabled">
-      <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
-    </li>
-    <li class="page-item"><a class="page-link" href="#">1</a></li>
-    <li class="page-item"><a class="page-link" href="#">2</a></li>
-    <li class="page-item"><a class="page-link" href="#">3</a></li>
-    <li class="page-item">
-      <a class="page-link" href="#">Next</a>
-    </li>
-  </ul>
-</nav>
+<!-- Подключение Bootstrap JS и зависимостей -->
 
-<!-- Bootstrap JS -->
-<script src="https://stackpath.bootstrapcdn.com/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+<!-- Скрипт для динамического отображения элементов и пагинации -->
+<script>
+  const domain = "http://localhost:8080"
+  // Функция для установки активной ссылки
+  function setActiveLink(relative_path) {
+    var link = document.querySelector(`a[href="${relative_path}"]`)
+    if(link) {
+      link.classList.add('active')
+    }
+
+  }
+
+  // Пример: при загрузке страницы подсвечивается "Main Page"
+  document.addEventListener('DOMContentLoaded', function() {
+
+
+    setActiveLink(window.location.pathname);
+
+    fetch(`${domain}/user`).then(response => response.json()
+    ).then(data => {
+              if ("redirectTo" in data) {
+                window.location.replace(domain + data.redirectTo)
+                return;
+              } else {
+
+                document.getElementById("username").textContent = data.user.Email.split("@")[0]
+              }
+            }
+    )
+  })
+  // Данные элементов: верхняя и нижняя ссылки и дата создания
+  let total_links_number = 0
+
+  fetch(`${domain}/get_total_links_number`).
+  then(response => response.json())
+  .then(data => {
+
+                      total_links_number = data.total_user_short_links
+                      document.getElementById("display_number_of_links").textContent = `Active links: ${data.total_user_short_links}`
+
+          })
+
+
+  const itemsPerPage = 3; // Элементов на одной странице
+  let currentPage = 1;
+
+
+  let elements = []
+
+  function displayElements() {
+    const container = document.getElementById('elements-container');
+    container.innerHTML = ''; // Очищаем контейнер
+    elements = []
+
+    console.log("offset",  (currentPage - 1) * itemsPerPage)
+    console.log("limit", itemsPerPage)
+    fetch(`${domain}/get_links?offset=${(currentPage - 1) * itemsPerPage}&limit=${itemsPerPage}`).then(response => response.json())
+            .then(data => {
+              document.querySelector("#total_pages h1").textContent = `${currentPage}/${Math.ceil(total_links_number / itemsPerPage)}`
+                    for(let i = 0;i < data.links.length;i++) {
+                      let link = data.links[i]
+                      if(link.LongUrl.length > 50) {
+                        link.LongUrl = link.LongUrl.slice(0, 50) + "..."
+                      }
+                      let element = {
+                        short_url: `${domain}/${link.ShortUrl}`,
+                        long_url: link.LongUrl,
+                        expires_at: link.ExpiresAt
+                      }
+                      elements.push(element)
+                    }
+
+
+              for (let i = 0; i < elements.length; i++) {
+
+                let element = elements[i]
+
+                container.innerHTML += `
+                <div class="col-md-12 mb-3">
+                    <div class="card p-3">
+                    <span class="card-title h5">
+                        Short URL: <a href="${element.short_url}">${element.short_url}</a>
+                        </span>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                        <span class="card-title h5">
+                            Original source: <a href="${element.long_url}">${element.long_url}</a>
+                            </span>
+                            <span class="text-muted">Expires at: ${element.expires_at}</span>
+                        </div>
+                    </div>
+                </div>`;
+              }
+                    }
+            )
+
+
+
+    // Блокируем кнопки пагинации при необходимости
+    document.getElementById('prev-button').disabled = currentPage === 1;
+    document.getElementById('next-button').disabled = currentPage === Math.ceil(total_links_number.length / itemsPerPage);
+  }
+
+
+
+  function prevPage() {
+    if (currentPage > 1) {
+      currentPage--;
+
+      displayElements();
+    }
+  }
+
+  function nextPage() {
+    if (currentPage * itemsPerPage < total_links_number) {
+      currentPage++;
+
+      displayElements();
+    }
+  }
+
+  // При загрузке страницы отображаем первую страницу
+  displayElements();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
