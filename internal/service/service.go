@@ -63,6 +63,7 @@ type Service struct {
 	consumers       []Consumer
 	producer        Producer
 	searcher        ElasticSearcher
+	producerTopic   string
 }
 
 var reservedNames = []string{
@@ -74,12 +75,14 @@ var reservedNames = []string{
 	"subscriptions",
 }
 
-func New(postgresStorage PostgresStorage, redisStorage RedisStorage, consumers []Consumer, searcher ElasticSearcher) *Service {
+func New(postgresStorage PostgresStorage, redisStorage RedisStorage, producer Producer, consumers []Consumer, searcher ElasticSearcher, producerTopic string) *Service {
 	return &Service{
 		postgresStorage: postgresStorage,
 		redisStorage:    redisStorage,
 		consumers:       consumers,
+		producer:        producer,
 		searcher:        searcher,
+		producerTopic:   producerTopic,
 	}
 }
 
@@ -372,7 +375,7 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 
 			data.ShortLink = shortLink
 
-			err := s.producer.PublishMsg("delete_expired_link", data, "short_url_topic")
+			err := s.producer.PublishMsg("delete_expired_link", data, s.producerTopic)
 
 			if err != nil {
 				// TODO log
@@ -389,7 +392,7 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 
 			data.ShortLink = shortLink
 
-			err := s.producer.PublishMsg("increment_link_view", data, "short_url_topic")
+			err := s.producer.PublishMsg("increment_link_view", data, s.producerTopic)
 
 			if err != nil {
 				// TODO log
@@ -568,12 +571,12 @@ func (s *Service) processData(ctx context.Context, dataType string, data any) er
 	}
 }
 
-func (s *Service) GetShortLinksMatchingPattern(ctx context.Context, containsWord string, limit, offset int) (dto.SearcherMatchResult, error) {
-	if limit <= 0 || offset < 0 {
+func (s *Service) GetShortLinksMatchingPattern(ctx context.Context, containsWord string, offset int) (dto.SearcherMatchResult, error) {
+	if offset < 0 {
 		return dto.SearcherMatchResult{}, nil
 	}
 
-	limit = max(limit, 20)
+	limit := 20
 
 	shortLinks, err := s.searcher.SearchShortLinks(ctx, containsWord, limit, offset)
 
@@ -586,4 +589,19 @@ func (s *Service) GetShortLinksMatchingPattern(ctx context.Context, containsWord
 		Offset:     offset,
 		ShortLinks: shortLinks,
 	}, nil
+}
+
+func (s *Service) LoginUserWithCode(ctx context.Context, email string) error {
+	email = strings.TrimSpace(email)
+
+	if len(email) == 0 {
+		return fmt.Errorf("LoginUser: email  is empty")
+	}
+
+	if !validateEmail(email) {
+		return fmt.Errorf("LoginUser: invalid email format")
+	}
+
+	return nil
+
 }

@@ -26,7 +26,7 @@ type Service interface {
 	DeleteShortLink(ctx context.Context, shortLink string, email string) error
 	CreateSubscriptions(ctx context.Context) error
 	GetTotalUserLinks(ctx context.Context, email string) (int, error)
-	GetShortLinksMatchingPattern(ctx context.Context, containsWord string, limit, offset int) (dto.SearcherMatchResult, error)
+	GetShortLinksMatchingPattern(ctx context.Context, containsWord string, offset int) (dto.SearcherMatchResult, error)
 }
 
 type SessionStore interface {
@@ -724,7 +724,6 @@ func (h *Handlers) DeleteShortLink(c echo.Context) error {
 }
 
 type GetShortLinksWithMatchingPatternRequest struct {
-	Limit        int    `json:"limit"`
 	Offset       int    `json:"offset"`
 	ContainsWord string `json:"contains_word"`
 }
@@ -762,7 +761,7 @@ func (h *Handlers) GetShortLinksMatchingPattern(c echo.Context) error {
 		}
 	}
 
-	links, err := h.Service.GetShortLinksMatchingPattern(ctx, requestData.ContainsWord, requestData.Limit, requestData.Offset)
+	links, err := h.Service.GetShortLinksMatchingPattern(ctx, requestData.ContainsWord, requestData.Offset)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
@@ -770,7 +769,50 @@ func (h *Handlers) GetShortLinksMatchingPattern(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, GetShortLinksWithMatchingPatternResponse{
 		ShortLinks: links.ShortLinks,
-		Limit:      requestData.Limit,
-		Offset:     requestData.Offset,
+		Limit:      links.Limit,
+		Offset:     links.Offset,
 	})
+}
+
+type GetLoginWithCodeRequest struct {
+	Email string `json:"email"`
+}
+
+func (h *Handlers) PostLoginWithCode(c echo.Context) error {
+	email, err := h.Store.RetrieveEmailFromSession(c)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	if email != "" {
+		return c.JSON(http.StatusBadRequest, echo.Map{
+			"redirectTo": "/",
+		})
+	}
+
+	_ = c.Request().Context()
+
+	requestData := new(GetLoginWithCodeRequest)
+
+	if err := c.Bind(&requestData); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	if c.Echo().Validator != nil {
+		if err := c.Validate(requestData); err != nil {
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+	}
+
+	return nil
+}
+
+type LoginWithCodeRequest struct {
+	Email string `json:"email"`
+	Code  string `json:"code"`
+}
+
+func (h *Handlers) SubmitLoginCode(c echo.Context) error {
+	return nil
 }
