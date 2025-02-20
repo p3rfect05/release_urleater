@@ -18,6 +18,12 @@ func (s *createShortLinkSuite) SetupTest() {
 	storage := mocks.NewStorage(s.T())
 	sessionStore := mocks.NewSessionStore(s.T())
 
+	storage.On("GetUser", mock.Anything, mock.Anything).Return(&postgresDB.User{
+		UrlsLeft: 1,
+	}, nil).Maybe()
+
+	storage.On("UpdateUserLinks", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
+
 	sessionStore.On("RetrieveEmailFromSession", mock.Anything).Return("any_email", nil)
 
 	storage.On("GetShortLink", mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows)
