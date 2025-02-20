@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 	"time"
+	"urleater/dto"
 )
 
 const linkExpireIn = 90 * 24 * time.Hour
@@ -72,8 +73,8 @@ func (s *Storage) ChangePassword(ctx context.Context, email string, password str
 
 }
 
-func (s *Storage) GetUser(ctx context.Context, email string) (*User, error) {
-	var user User
+func (s *Storage) GetUser(ctx context.Context, email string) (*dto.User, error) {
+	var user dto.User
 
 	query, args, err := s.queryBuilder.
 		Select(
@@ -91,7 +92,7 @@ func (s *Storage) GetUser(ctx context.Context, email string) (*User, error) {
 
 	err = s.pgxPool.QueryRow(ctx, query, args...).Scan(&user.Email, &user.PasswordHash, &user.UrlsLeft)
 	if err != nil {
-		return &User{}, fmt.Errorf("GetUser query error | %w", err)
+		return &dto.User{}, fmt.Errorf("GetUser query error | %w", err)
 	}
 	return &user, nil
 }
@@ -111,8 +112,8 @@ func (s *Storage) VerifyUserPassword(ctx context.Context, email string, password
 	return nil
 }
 
-func (s *Storage) UpdateUserLinks(ctx context.Context, email string, newUrlsNumber int) (*User, error) {
-	var user User
+func (s *Storage) UpdateUserLinks(ctx context.Context, email string, newUrlsNumber int) (*dto.User, error) {
+	var user dto.User
 
 	query, args, err := s.queryBuilder.
 		Update("users").
@@ -133,14 +134,14 @@ func (s *Storage) UpdateUserLinks(ctx context.Context, email string, newUrlsNumb
 	)
 
 	if err != nil {
-		return &User{}, fmt.Errorf("UpdateUserLinks query error | %w", err)
+		return &dto.User{}, fmt.Errorf("UpdateUserLinks query error | %w", err)
 	}
 
 	return &user, nil
 }
 
-func (s *Storage) CreateShortLink(ctx context.Context, shortLink string, longLink string, userEmail string) (*Link, error) {
-	var link Link
+func (s *Storage) CreateShortLink(ctx context.Context, shortLink string, longLink string, userEmail string) (*dto.Link, error) {
+	var link dto.Link
 	expiresAt := time.Now().UTC().Add(linkExpireIn)
 
 	query, args, err := s.queryBuilder.Insert("urls").
@@ -166,8 +167,8 @@ func (s *Storage) CreateShortLink(ctx context.Context, shortLink string, longLin
 	return &link, nil
 }
 
-func (s *Storage) GetShortLink(ctx context.Context, shortLink string) (*Link, error) {
-	var link Link
+func (s *Storage) GetShortLink(ctx context.Context, shortLink string) (*dto.Link, error) {
+	var link dto.Link
 
 	query, args, err := s.queryBuilder.
 		Select(
@@ -193,8 +194,8 @@ func (s *Storage) GetShortLink(ctx context.Context, shortLink string) (*Link, er
 	return &link, nil
 }
 
-func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]Link, error) {
-	var links = make([]Link, 0)
+func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]dto.Link, error) {
+	var links = make([]dto.Link, 0)
 
 	query, args, err := s.queryBuilder.
 		Select(
@@ -223,7 +224,7 @@ func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 	defer rows.Close()
 
 	for rows.Next() {
-		var link Link
+		var link dto.Link
 
 		err = rows.Scan(
 			&link.ShortUrl,
@@ -287,8 +288,8 @@ func (s *Storage) DeleteShortLink(ctx context.Context, shortLink string) error {
 	return nil
 }
 
-func (s *Storage) ExtendShortLink(ctx context.Context, shortLink string, expiresAt time.Time) (*Link, error) {
-	var link Link
+func (s *Storage) ExtendShortLink(ctx context.Context, shortLink string, expiresAt time.Time) (*dto.Link, error) {
+	var link dto.Link
 
 	query, args, err := s.queryBuilder.
 		Update("urls").
@@ -312,8 +313,8 @@ func (s *Storage) ExtendShortLink(ctx context.Context, shortLink string, expires
 	return &link, nil
 }
 
-func (s *Storage) GetSubscriptions(ctx context.Context) ([]Subscription, error) {
-	var subscriptions []Subscription
+func (s *Storage) GetSubscriptions(ctx context.Context) ([]dto.Subscription, error) {
+	var subscriptions []dto.Subscription
 
 	query, args, err := s.queryBuilder.
 		Select(
@@ -337,7 +338,7 @@ func (s *Storage) GetSubscriptions(ctx context.Context) ([]Subscription, error) 
 	defer rows.Close()
 
 	for rows.Next() {
-		var sub Subscription
+		var sub dto.Subscription
 		err = rows.Scan(
 			&sub.Id,
 			&sub.Name,

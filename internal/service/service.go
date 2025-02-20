@@ -12,21 +12,21 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	"urleater/dto"
 	kafkaProducerConsumer "urleater/internal/repository/kafka"
-	"urleater/internal/repository/postgresDB"
 )
 
 type PostgresStorage interface {
 	CreateUser(ctx context.Context, email string, password string) error
 	ChangePassword(ctx context.Context, email string, password string) error
-	GetUser(ctx context.Context, email string) (*postgresDB.User, error)
-	CreateShortLink(ctx context.Context, shortLink string, longLink string, userID string) (*postgresDB.Link, error)
-	GetShortLink(ctx context.Context, shortLink string) (*postgresDB.Link, error)
+	GetUser(ctx context.Context, email string) (*dto.User, error)
+	CreateShortLink(ctx context.Context, shortLink string, longLink string, userID string) (*dto.Link, error)
+	GetShortLink(ctx context.Context, shortLink string) (*dto.Link, error)
 	DeleteShortLink(ctx context.Context, shortLink string) error
-	ExtendShortLink(ctx context.Context, shortLink string, expiresAt time.Time) (*postgresDB.Link, error)
-	GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]postgresDB.Link, error)
-	UpdateUserLinks(ctx context.Context, email string, newUrlsNumber int) (*postgresDB.User, error)
-	GetSubscriptions(ctx context.Context) ([]postgresDB.Subscription, error)
+	ExtendShortLink(ctx context.Context, shortLink string, expiresAt time.Time) (*dto.Link, error)
+	GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]dto.Link, error)
+	UpdateUserLinks(ctx context.Context, email string, newUrlsNumber int) (*dto.User, error)
+	GetSubscriptions(ctx context.Context) ([]dto.Subscription, error)
 	VerifyUserPassword(ctx context.Context, email string, password string) error
 	CreateSubscriptions(ctx context.Context) error
 	GetTotalUserLinksNumber(ctx context.Context, email string) (int, error)
@@ -35,14 +35,20 @@ type PostgresStorage interface {
 
 type RedisStorage interface {
 	DeleteLongLinkByShortLink(ctx context.Context, shortLink string) error
-	GetShortLinkByLongLink(ctx context.Context, shortLink string) (*postgresDB.Link, error)
-	SaveShortLinkToLongLink(ctx context.Context, link postgresDB.Link) error
+	GetShortLinkByLongLink(ctx context.Context, shortLink string) (*dto.Link, error)
+	SaveShortLinkToLongLink(ctx context.Context, link dto.Link) error
 }
 
 type Consumer interface {
 	StartConsuming(ctx context.Context) error
 	GetConfig() kafkaProducerConsumer.KafkaConfig
-	GetWorkerChannel() chan kafkaProducerConsumer.ConsumerData
+	GetWorkerChannel() chan dto.ConsumerData
+}
+
+type ElasticSearcher interface {
+	SearchShortLinks(ctx context.Context, word string, offset, limit int) ([]string, error)
+	AddShortLink(ctx context.Context, link string) error
+	DeleteShortLink(ctx context.Context, link string) error
 }
 
 type Producer interface {
@@ -56,6 +62,7 @@ type Service struct {
 	redisStorage    RedisStorage
 	consumers       []Consumer
 	producer        Producer
+	searcher        ElasticSearcher
 }
 
 var reservedNames = []string{
@@ -67,11 +74,12 @@ var reservedNames = []string{
 	"subscriptions",
 }
 
-func New(postgresStorage PostgresStorage, redisStorage RedisStorage, consumers []Consumer) *Service {
+func New(postgresStorage PostgresStorage, redisStorage RedisStorage, consumers []Consumer, searcher ElasticSearcher) *Service {
 	return &Service{
 		postgresStorage: postgresStorage,
 		redisStorage:    redisStorage,
 		consumers:       consumers,
+		searcher:        searcher,
 	}
 }
 
@@ -196,7 +204,7 @@ func IsValidUrl(str string) bool {
 	return err == nil && u.Scheme != "" && u.Host != ""
 }
 
-func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink string, userEmail string) (*postgresDB.Link, error) {
+func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink string, userEmail string) (*dto.Link, error) {
 	if len(longLink) == 0 {
 		return nil, fmt.Errorf("CreateShortLink: longLink is empty")
 	}
@@ -241,16 +249,6 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 		}
 	}
 
-	_, err := s.postgresStorage.GetShortLink(ctx, shortLink)
-
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-
-	case err != nil:
-		return nil, fmt.Errorf("CreateShortLink: error while getting shortlink: %#v", err)
-	default:
-		return nil, fmt.Errorf("CreateShortLink: shortlink already exists")
-	}
 	user, err := s.postgresStorage.GetUser(ctx, userEmail)
 
 	if err != nil {
@@ -273,10 +271,16 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 		return nil, fmt.Errorf("CreateShortLink: error while creating a short link %s | %w", shortLink, err)
 	}
 
+	err = s.searcher.AddShortLink(ctx, shortLink)
+
+	if err != nil {
+		// TODO log return nil, fmt.Errorf("CreateShortLink: error while adding short link %s to searcher| %w", shortLink, err)
+	}
+
 	return link, nil
 }
 
-func (s *Service) GetSubscriptions(ctx context.Context) ([]postgresDB.Subscription, error) {
+func (s *Service) GetSubscriptions(ctx context.Context) ([]dto.Subscription, error) {
 	subs, err := s.postgresStorage.GetSubscriptions(ctx)
 
 	if err != nil {
@@ -286,7 +290,7 @@ func (s *Service) GetSubscriptions(ctx context.Context) ([]postgresDB.Subscripti
 	return subs, nil
 }
 
-func (s *Service) GetUser(ctx context.Context, email string) (*postgresDB.User, error) {
+func (s *Service) GetUser(ctx context.Context, email string) (*dto.User, error) {
 	user, err := s.postgresStorage.GetUser(ctx, email)
 
 	if err != nil {
@@ -296,7 +300,7 @@ func (s *Service) GetUser(ctx context.Context, email string) (*postgresDB.User, 
 	return user, nil
 }
 
-func (s *Service) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]postgresDB.Link, *postgresDB.User, error) {
+func (s *Service) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]dto.Link, *dto.User, error) {
 	user, err := s.postgresStorage.GetUser(ctx, email)
 
 	if err != nil {
@@ -332,7 +336,7 @@ func (s *Service) GetTotalUserLinks(ctx context.Context, email string) (int, err
 	return totalUserLinks, nil
 }
 
-func (s *Service) UpdateUserShortLinks(ctx context.Context, email string, deltaLinks int) (*postgresDB.User, error) {
+func (s *Service) UpdateUserShortLinks(ctx context.Context, email string, deltaLinks int) (*dto.User, error) {
 	user, err := s.postgresStorage.UpdateUserLinks(ctx, email, deltaLinks)
 
 	if err != nil {
@@ -342,7 +346,7 @@ func (s *Service) UpdateUserShortLinks(ctx context.Context, email string, deltaL
 	return user, nil
 }
 
-func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*postgresDB.Link, error) {
+func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link, error) {
 	link, err := s.redisStorage.GetShortLinkByLongLink(ctx, shortLink)
 
 	if err != nil {
@@ -399,10 +403,32 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*postgres
 }
 
 func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email string) error {
-	err := s.postgresStorage.DeleteShortLink(ctx, shortLink)
+	link, err := s.postgresStorage.GetShortLink(ctx, shortLink)
+
+	if err != nil {
+		return fmt.Errorf("DeleteShortLink: error while getting short link %s: %w", shortLink, err)
+	}
+
+	if link.UserEmail != email {
+		return fmt.Errorf("DeleteShortLink: short link %s does not match email %s", shortLink, email)
+	}
+
+	err = s.postgresStorage.DeleteShortLink(ctx, shortLink)
 
 	if err != nil {
 		return fmt.Errorf("DeleteShortLink: error while deleting short link %s with email %s: %w", shortLink, email, err)
+	}
+
+	err = s.redisStorage.DeleteLongLinkByShortLink(ctx, shortLink)
+
+	if err != nil {
+		// TODO log
+	}
+
+	err = s.searcher.DeleteShortLink(ctx, shortLink)
+
+	if err != nil {
+		// TODO log
 	}
 
 	return nil
@@ -469,7 +495,7 @@ func (s *Service) StartConsumers(ctx context.Context) {
 	}
 }
 
-func (s *Service) StartConsumingWorkers(ctx context.Context, n int, workerChannel chan kafkaProducerConsumer.ConsumerData) {
+func (s *Service) StartConsumingWorkers(ctx context.Context, n int, workerChannel chan dto.ConsumerData) {
 	for i := 0; i < n; i++ {
 		go func() {
 			for {
@@ -483,7 +509,7 @@ func (s *Service) StartConsumingWorkers(ctx context.Context, n int, workerChanne
 	}
 }
 
-func (s *Service) startWorker(ctx context.Context, workerChannel chan kafkaProducerConsumer.ConsumerData) error {
+func (s *Service) startWorker(ctx context.Context, workerChannel chan dto.ConsumerData) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -515,7 +541,13 @@ func (s *Service) processData(ctx context.Context, dataType string, data any) er
 		err = s.postgresStorage.DeleteShortLink(ctx, shortLinkData.ShortLink)
 
 		if err != nil {
-			return fmt.Errorf("processData: error while deleting short link: %w", err)
+			return fmt.Errorf("processData: error while deleting short link from postgres: %w", err)
+		}
+
+		err = s.searcher.DeleteShortLink(ctx, shortLinkData.ShortLink)
+
+		if err != nil {
+			// TODO log
 		}
 
 		return nil
@@ -534,4 +566,24 @@ func (s *Service) processData(ctx context.Context, dataType string, data any) er
 	default:
 		return nil
 	}
+}
+
+func (s *Service) GetShortLinksMatchingPattern(ctx context.Context, containsWord string, limit, offset int) (dto.SearcherMatchResult, error) {
+	if limit <= 0 || offset < 0 {
+		return dto.SearcherMatchResult{}, nil
+	}
+
+	limit = max(limit, 20)
+
+	shortLinks, err := s.searcher.SearchShortLinks(ctx, containsWord, limit, offset)
+
+	if err != nil {
+		return dto.SearcherMatchResult{}, fmt.Errorf("GetShortLinksMatchingPattern: error while searching short links: %w", err)
+	}
+
+	return dto.SearcherMatchResult{
+		Limit:      limit,
+		Offset:     offset,
+		ShortLinks: shortLinks,
+	}, nil
 }

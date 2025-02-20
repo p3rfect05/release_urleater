@@ -1,4 +1,4 @@
-package kafkaProducerConsumer
+package dto
 
 type ConsumerData struct {
 	TypeOfMessage string `json:"type"`

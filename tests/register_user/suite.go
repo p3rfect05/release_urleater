@@ -3,7 +3,7 @@ package register_user
 import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/mock"
-	"urleater/internal/repository/postgresDB"
+	"urleater/dto"
 	base "urleater/tests"
 	"urleater/tests/mocks"
 )
@@ -27,7 +27,7 @@ func (s *registerUserSuite) SetupTest() {
 	storage.On("CreateUser", mock.Anything, "test_name1@mail.ru", "qwertyui").Return(nil).Once()
 
 	// 2
-	user2 := postgresDB.User{
+	user2 := dto.User{
 		Email:        "test_name1@mail.ru",
 		PasswordHash: "some_hash",
 	}
@@ -36,7 +36,7 @@ func (s *registerUserSuite) SetupTest() {
 		Return(&user2, nil).Once()
 
 	// 3
-	user3 := postgresDB.User{
+	user3 := dto.User{
 		Email:        "test_name1@mail.ru",
 		PasswordHash: "some_hash",
 	}

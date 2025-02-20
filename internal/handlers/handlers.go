@@ -3,27 +3,26 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/antonlindstrom/pgstore"
 	"github.com/gorilla/sessions"
+	"github.com/labstack/echo/v4"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 	_ "urleater/docs"
-	"urleater/internal/repository/postgresDB"
-
-	"github.com/antonlindstrom/pgstore"
-	"github.com/labstack/echo/v4"
+	"urleater/dto"
 )
 
 type Service interface {
 	LoginUser(ctx context.Context, email string, password string) error
 	RegisterUser(ctx context.Context, email string, password string) error
-	CreateShortLink(ctx context.Context, shortLink string, longLink string, userEmail string) (*postgresDB.Link, error)
-	UpdateUserShortLinks(ctx context.Context, email string, deltaLinks int) (*postgresDB.User, error)
-	GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]postgresDB.Link, *postgresDB.User, error)
-	GetSubscriptions(ctx context.Context) ([]postgresDB.Subscription, error)
-	GetShortLink(ctx context.Context, shortLink string) (*postgresDB.Link, error)
-	GetUser(ctx context.Context, email string) (*postgresDB.User, error)
+	CreateShortLink(ctx context.Context, shortLink string, longLink string, userEmail string) (*dto.Link, error)
+	UpdateUserShortLinks(ctx context.Context, email string, deltaLinks int) (*dto.User, error)
+	GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]dto.Link, *dto.User, error)
+	GetSubscriptions(ctx context.Context) ([]dto.Subscription, error)
+	GetShortLink(ctx context.Context, shortLink string) (*dto.Link, error)
+	GetUser(ctx context.Context, email string) (*dto.User, error)
 	DeleteShortLink(ctx context.Context, shortLink string, email string) error
 	CreateSubscriptions(ctx context.Context) error
 	GetTotalUserLinks(ctx context.Context, email string) (int, error)
@@ -286,7 +285,7 @@ type CreateShortLinkRequest struct {
 }
 
 type CreateShortLinkResponse struct {
-	Link postgresDB.Link `json:"link"`
+	Link dto.Link `json:"link"`
 }
 
 // CreateShortLink godoc
@@ -345,7 +344,7 @@ type FormattedLink struct {
 }
 type GetUserShortLinksResponse struct {
 	Links []FormattedLink `json:"links"`
-	User  postgresDB.User `json:"user"`
+	User  dto.User        `json:"user"`
 }
 
 // GetUserShortLinks godoc
@@ -494,7 +493,7 @@ type UpdateUserShortLinksRequest struct {
 }
 
 type UpdateUserShortLinksResponse struct {
-	User postgresDB.User `json:"user"`
+	User dto.User `json:"user"`
 }
 
 func (h *Handlers) UpdateUserShortLinks(c echo.Context) error {
@@ -578,7 +577,7 @@ func (h *Handlers) GetShortLink(c echo.Context) error {
 }
 
 type GetSubscriptionsResponse struct {
-	Subscriptions []postgresDB.Subscription `json:"subscriptions"`
+	Subscriptions []dto.Subscription `json:"subscriptions"`
 }
 
 // GetSubscriptions godoc
@@ -638,7 +637,7 @@ func (h *Handlers) GetSubscriptionsPage(c echo.Context) error {
 }
 
 type GetUserResponse struct {
-	User postgresDB.User `json:"user"`
+	User dto.User `json:"user"`
 }
 
 // GetUser godoc

@@ -3,7 +3,7 @@ package create_short_link
 import (
 	"github.com/jackc/pgx/v4"
 	"github.com/stretchr/testify/mock"
-	"urleater/internal/repository/postgresDB"
+	"urleater/dto"
 	base "urleater/tests"
 	"urleater/tests/mocks"
 )
@@ -18,7 +18,7 @@ func (s *createShortLinkSuite) SetupTest() {
 	storage := mocks.NewStorage(s.T())
 	sessionStore := mocks.NewSessionStore(s.T())
 
-	storage.On("GetUser", mock.Anything, mock.Anything).Return(&postgresDB.User{
+	storage.On("GetUser", mock.Anything, mock.Anything).Return(&dto.User{
 		UrlsLeft: 1,
 	}, nil).Maybe()
 
@@ -30,7 +30,7 @@ func (s *createShortLinkSuite) SetupTest() {
 
 	// 1
 	longUrl1 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
-	createdNewLink1 := postgresDB.Link{
+	createdNewLink1 := dto.Link{
 		ShortUrl: "new_short_link",
 		LongUrl:  longUrl1,
 	}
@@ -41,7 +41,7 @@ func (s *createShortLinkSuite) SetupTest() {
 	longUrl4 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
 	alias4 := "myAlias1"
 
-	createdNewLink4 := postgresDB.Link{
+	createdNewLink4 := dto.Link{
 		ShortUrl: alias4,
 		LongUrl:  longUrl4,
 	}
@@ -52,7 +52,7 @@ func (s *createShortLinkSuite) SetupTest() {
 	longUrl8 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
 	alias8 := "myCustomAlias1234567"
 
-	createdNewLink8 := postgresDB.Link{
+	createdNewLink8 := dto.Link{
 		ShortUrl: alias8,
 		LongUrl:  longUrl8,
 	}
