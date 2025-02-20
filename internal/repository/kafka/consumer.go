@@ -3,9 +3,9 @@ package kafkaProducerConsumer
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"log"
 	"time"
 	"urleater/dto"
 )
@@ -60,29 +60,38 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 			return nil
 		default:
 			msg, err := c.consumer.ReadMessage(500 * time.Millisecond)
-
 			if err != nil {
-				var kafkaError *kafka.Error
+				err, ok := err.(kafka.Error)
 
-				ok := errors.As(err, &kafkaError)
+				// Если ошибка является таймаутом, продолжаем цикл
+				if !ok {
+					log.Println("error while running consumer", err)
 
-				if !ok || ok && !kafkaError.IsTimeout() { // либо не ошибка кафки, либо ошибка кафки но не IsTimeout
-					return fmt.Errorf("error reading message: %w", err)
+					return fmt.Errorf("error while running consumer: %w", err)
+				} else {
+					if !err.IsTimeout() {
+						log.Println("kafka error while running consumer", err)
+
+						return fmt.Errorf("kafka error while running consumer: %w", err)
+					} else {
+						//log.Println("timeout, continuing...")
+						continue
+					}
 				}
-
-				continue
 			}
 
 			var data dto.ConsumerData
+			if err = json.Unmarshal(msg.Value, &data); err != nil {
+				log.Println("error unmarshalling message:", err)
 
-			err = json.Unmarshal(msg.Value, &data)
-
-			if err != nil {
 				continue
 			}
 
+			log.Println("sending data to worker")
+
 			select {
 			case c.workerChannel <- data:
+				log.Println("sent data to worker")
 			case <-ctx.Done():
 				return nil
 			}
@@ -94,10 +103,11 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 					Offset:    msg.TopicPartition.Offset + 1,
 				},
 			})
-
 			if err != nil {
+				log.Println("error committing offsets:", err)
 				return fmt.Errorf("failed to commit offsets: %w", err)
 			}
+			log.Println("committed offset")
 		}
 	}
 }

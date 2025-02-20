@@ -1,5 +1,14 @@
-run:
-	go run cmd/main.go
+.PHONY: build
+
+NAME=urleater
+
+build:
+	@mkdir -p bin
+	go build -race -o bin/${NAME} cmd/*.go
+
+run: build
+	bash -c "set -a; . ./build/local/.env; set +a; ./bin/${NAME}"
+
 
 migrate_up:
 	migrate -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" -path build/migrations up

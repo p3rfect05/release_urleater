@@ -53,7 +53,7 @@ type ElasticSearcher interface {
 }
 
 type Producer interface {
-	PublishMsg(msgType string, data any, topic string) error
+	PublishMsg(msgType string, data map[string]string, topic string) error
 	GetConfig() kafkaProducerConsumer.KafkaConfig
 }
 
@@ -210,6 +210,7 @@ func IsValidUrl(str string) bool {
 }
 
 func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink string, userEmail string) (*dto.Link, error) {
+	fmt.Println()
 	if len(longLink) == 0 {
 		return nil, fmt.Errorf("CreateShortLink: longLink is empty")
 	}
@@ -377,13 +378,9 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 
 	if link.ExpiresAt.Before(time.Now()) {
 		go func() {
-			var data struct {
-				ShortLink string `json:"short_link"`
-			}
-
-			data.ShortLink = shortLink
-
-			err := s.producer.PublishMsg("delete_expired_link", data, s.producerTopic)
+			err := s.producer.PublishMsg("increment_link_view", map[string]string{
+				"short_link": shortLink,
+			}, s.producerTopic)
 
 			if err != nil {
 				log.Println(fmt.Errorf("error while publishing to %s topic: %w", s.producerTopic, err).Error())
@@ -396,18 +393,16 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 		return nil, fmt.Errorf("GetShortLink: short link %s expired", shortLink)
 	} else {
 		go func() {
-			var data struct {
-				ShortLink string `json:"short_link"`
-			}
-
-			data.ShortLink = shortLink
-
-			err := s.producer.PublishMsg("increment_link_view", data, s.producerTopic)
+			err := s.producer.PublishMsg("increment_link_view", map[string]string{
+				"short_link": shortLink,
+			}, s.producerTopic)
 
 			if err != nil {
 				log.Println(fmt.Errorf("error while publishing to %s topic: %w", s.producerTopic, err).Error())
 
 				s.recreateProducer(ctx)
+			} else {
+				log.Println("sent to consumer")
 			}
 		}()
 	}
@@ -446,6 +441,7 @@ func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email s
 		return fmt.Errorf("DeleteShortLink: error while getting short link %s: %w", shortLink, err)
 	}
 
+	fmt.Println(link.UserEmail, email)
 	if link.UserEmail != email {
 		return fmt.Errorf("DeleteShortLink: short link %s does not match email %s", shortLink, email)
 	}
@@ -465,7 +461,7 @@ func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email s
 	err = s.searcher.DeleteShortLink(ctx, shortLink)
 
 	if err != nil {
-		log.Println(fmt.Errorf("DeleteShortLink: error while deleting short link from elastic%s: %w", shortLink, err).Error())
+		log.Println(fmt.Errorf("DeleteShortLink: error while deleting short link from elastic %s: %w", shortLink, err).Error())
 	}
 
 	return nil
@@ -508,8 +504,11 @@ func (s *Service) StartConsumers(ctx context.Context) {
 					return
 				}
 
+				log.Println("error while running kafka consumer", err)
+
 				ticker := time.NewTicker(5 * time.Second)
 
+				log.Println("recreating kafka consumer...")
 			innerLoop:
 				for {
 					select {
@@ -522,6 +521,7 @@ func (s *Service) StartConsumers(ctx context.Context) {
 						if err == nil {
 							ticker.Stop()
 
+							log.Println("recreated kafka consumer")
 							break innerLoop
 						}
 					}
@@ -555,6 +555,8 @@ func (s *Service) startWorker(ctx context.Context, workerChannel chan dto.Consum
 			err := s.processData(ctx, data.TypeOfMessage, data.Data)
 
 			if err != nil {
+				log.Println(fmt.Errorf("error while processing data: %w", err))
+
 				return fmt.Errorf("startWorker: error while processing data: %w", err)
 			}
 		}
@@ -562,38 +564,43 @@ func (s *Service) startWorker(ctx context.Context, workerChannel chan dto.Consum
 
 }
 
-func (s *Service) processData(ctx context.Context, dataType string, data any) error {
+func (s *Service) processData(ctx context.Context, dataType string, data map[string]string) error {
+	log.Printf("data type: %s, data: %v\n", dataType, data)
 	switch dataType {
 	case "delete_expired_link":
-		var shortLinkData struct {
-			ShortLink string `json:"short_link"`
+		shortLink, ok := data["short_link"]
+
+		if !ok {
+			return fmt.Errorf("processData: invalid data type for delete_expired_link")
 		}
 
-		err := s.redisStorage.DeleteLongLinkByShortLink(ctx, shortLinkData.ShortLink)
+		err := s.redisStorage.DeleteLongLinkByShortLink(ctx, shortLink)
 
 		if err != nil {
 			return fmt.Errorf("processData: error while deleting short link from redis: %w", err)
 		}
 
-		err = s.postgresStorage.DeleteShortLink(ctx, shortLinkData.ShortLink)
+		err = s.postgresStorage.DeleteShortLink(ctx, shortLink)
 
 		if err != nil {
 			return fmt.Errorf("processData: error while deleting short link from postgres: %w", err)
 		}
 
-		err = s.searcher.DeleteShortLink(ctx, shortLinkData.ShortLink)
+		err = s.searcher.DeleteShortLink(ctx, shortLink)
 
 		if err != nil {
-			log.Println(fmt.Errorf("DeleteShortLink: error while deleting short link from searcher %s: %w", shortLinkData.ShortLink, err).Error())
+			log.Println(fmt.Errorf("DeleteShortLink: error while deleting short link from searcher %s: %w", shortLink, err).Error())
 		}
 
 		return nil
 	case "increment_link_view":
-		var shortLinkData struct {
-			ShortLink string `json:"short_link"`
+		shortLink, ok := data["short_link"]
+
+		if !ok {
+			return fmt.Errorf("processData: invalid data type for delete_expired_link")
 		}
 
-		err := s.postgresStorage.IncrementShortLinkTimesWatchedCount(ctx, shortLinkData.ShortLink)
+		err := s.postgresStorage.IncrementShortLinkTimesWatchedCount(ctx, shortLink)
 
 		if err != nil {
 			return fmt.Errorf("processData: error while incrementing short link times: %w", err)

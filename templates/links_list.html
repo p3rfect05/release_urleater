@@ -131,6 +131,7 @@
     console.log("limit", itemsPerPage)
     fetch(`${domain}/get_links?offset=${(currentPage - 1) * itemsPerPage}&limit=${itemsPerPage}`).then(response => response.json())
             .then(data => {
+              console.log(data)
               document.querySelector("#total_pages h1").textContent = `${currentPage}/${Math.ceil(total_links_number / itemsPerPage)}`
                     for(let i = 0;i < data.links.length;i++) {
                       let link = data.links[i]
@@ -140,7 +141,8 @@
                       let element = {
                         short_url: `${domain}/${link.ShortUrl}`,
                         long_url: link.LongUrl,
-                        expires_at: link.ExpiresAt
+                        expires_at: link.ExpiresAt,
+                        times_visited: link.TimesVisited
                       }
                       elements.push(element)
                     }
@@ -161,6 +163,7 @@
                                 Original source: <a href="${element.long_url}">${element.long_url}</a>
                             </span>
                             <span class="text-muted">Expires at: ${element.expires_at}</span>
+                            <span class="text-muted">Times visited: ${element.times_visited}</span>
                         </div>
                         <button class="btn btn-danger mt-3" onclick="deleteURL('${element.short_url}')">Delete</button>
                     </div>
@@ -177,12 +180,9 @@
   }
 
   function deleteURL(shortUrl) {
-    fetch("http://localhost:8080", {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ short_url: shortUrl })
+    shortUrl = shortUrl.replace(`${domain}/`, '');
+    fetch(`${domain}/delete_link?short_link=${shortUrl}`, {
+      method: "DELETE"
     })
             .then(response => {
               if (response.ok) {
@@ -194,6 +194,7 @@
             })
             .catch(error => console.error("Error:", error));
   }
+
 
 
 

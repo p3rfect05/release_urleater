@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 	_ "urleater/docs"
 	"urleater/dto"
@@ -42,14 +43,19 @@ type Handlers struct {
 
 type PostgresSessionStore struct {
 	store *pgstore.PGStore
+	mu    sync.Mutex
 }
 
 func NewPostgresSessionStore(store *pgstore.PGStore) SessionStore {
-	return &PostgresSessionStore{store}
+	return &PostgresSessionStore{
+		store: store,
+	}
 }
 
 func (pg *PostgresSessionStore) RetrieveEmailFromSession(c echo.Context) (string, error) {
+	pg.mu.Lock()
 	session, err := pg.store.Get(c.Request(), "session_key")
+	pg.mu.Unlock()
 
 	if err != nil {
 		return "", fmt.Errorf("error getting session: %w", err)
@@ -63,7 +69,9 @@ func (pg *PostgresSessionStore) RetrieveEmailFromSession(c echo.Context) (string
 }
 
 func (pg *PostgresSessionStore) Get(r *http.Request, key string) (*sessions.Session, error) {
+	pg.mu.Lock()
 	session, err := pg.store.Get(r, key)
+	pg.mu.Unlock()
 
 	return session, err
 }
@@ -335,10 +343,11 @@ func (h *Handlers) CreateShortLink(c echo.Context) error {
 }
 
 type FormattedLink struct {
-	ShortUrl  string
-	LongUrl   string
-	UserEmail string
-	ExpiresAt string
+	ShortUrl     string
+	LongUrl      string
+	UserEmail    string
+	ExpiresAt    string
+	TimesVisited int
 }
 type GetUserShortLinksResponse struct {
 	Links []FormattedLink `json:"links"`
@@ -399,10 +408,11 @@ func (h *Handlers) GetUserShortLinks(c echo.Context) error {
 	var formattedLinks []FormattedLink
 	for _, l := range links {
 		formattedLinks = append(formattedLinks, FormattedLink{
-			ShortUrl:  l.ShortUrl,
-			LongUrl:   l.LongUrl,
-			UserEmail: l.UserEmail,
-			ExpiresAt: l.ExpiresAt.Format(time.DateTime),
+			ShortUrl:     l.ShortUrl,
+			LongUrl:      l.LongUrl,
+			UserEmail:    l.UserEmail,
+			TimesVisited: l.TimesVisited,
+			ExpiresAt:    l.ExpiresAt.Format(time.DateTime),
 		})
 	}
 	return c.JSON(http.StatusOK, GetUserShortLinksResponse{
@@ -571,7 +581,7 @@ func (h *Handlers) GetShortLink(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.Redirect(http.StatusMovedPermanently, link.LongUrl)
+	return c.Redirect(http.StatusFound, link.LongUrl)
 }
 
 type GetSubscriptionsResponse struct {
@@ -699,19 +709,15 @@ func (h *Handlers) DeleteShortLink(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	requestData := new(DeleteShortLinkRequest)
+	shortLink := c.QueryParam("short_link")
 
-	if err := c.Bind(&requestData); err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error())
+	log.Println("short_link", shortLink)
+
+	if shortLink == "" {
+		return c.JSON(http.StatusBadRequest, fmt.Errorf("пустая строка").Error())
 	}
 
-	if c.Echo().Validator != nil {
-		if err := c.Validate(requestData); err != nil {
-			return c.JSON(http.StatusBadRequest, err.Error())
-		}
-	}
-
-	err = h.Service.DeleteShortLink(ctx, requestData.ShortLink, email)
+	err = h.Service.DeleteShortLink(ctx, shortLink, email)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())

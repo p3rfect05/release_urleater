@@ -53,7 +53,7 @@ func (s *Searcher) AddShortLink(ctx context.Context, link string) error {
 	_, err := s.client.Index().
 		Index("short_links").
 		BodyJson(doc).
-		Refresh("wait_for").
+		Refresh("true").
 		Do(ctx)
 
 	if err != nil {
@@ -71,7 +71,7 @@ func (s *Searcher) DeleteShortLink(ctx context.Context, link string) error {
 	res, err := s.client.DeleteByQuery().
 		Index("short_links").
 		Query(query).
-		Refresh("wait_for"). // Обеспечивает немедленное обновление индекса после удаления.
+		Refresh("true"). // Обеспечивает немедленное обновление индекса после удаления.
 		Do(ctx)
 	if err != nil {
 		return fmt.Errorf("ошибка удаления короткой ссылки: %w", err)

@@ -44,7 +44,10 @@ func main() {
 
 	redisStorage := redisDB.NewStorage(redisClient)
 
-	elasticClient, err := elastic.NewClient(elastic.SetURL(cfg.Elastic.Host))
+	elasticClient, err := elastic.NewClient(
+		elastic.SetURL(cfg.Elastic.Host),
+		elastic.SetSniff(false), // Отключаем Sniffing (важно!)
+	)
 
 	if err != nil {
 		log.Fatal(err)
@@ -53,9 +56,11 @@ func main() {
 	elasticSearcher := elastic_searcher.NewSearcher(elasticClient, cfg.Elastic.Host)
 
 	configMap := &kafka.ConfigMap{
-		"bootstrap.servers": cfg.Kafka.Address,
-		"group.id":          cfg.Kafka.Consumer.GroupId,
-		"auto.offset.reset": "earliest",
+		"bootstrap.servers":     cfg.Kafka.Address,
+		"group.id":              cfg.Kafka.Consumer.GroupId,
+		"auto.offset.reset":     "earliest",
+		"session.timeout.ms":    10000, // 10 секунд
+		"heartbeat.interval.ms": 3000,  // 3 секунды
 	}
 
 	kafkaConfig := kafkaProducerConsumer.KafkaConfig{
@@ -79,6 +84,8 @@ func main() {
 		NumPartitions:     cfg.Kafka.NumberOfPartitions,
 		ReplicationFactor: cfg.Kafka.ReplicationFactor,
 	}
+
+	fmt.Println(cfg.Kafka.Consumer.Topic, cfg.Kafka.Producer.Topic)
 
 	// Создаем топик. Если топик уже существует, ошибка будет проигнорирована.
 	results, err := admin.CreateTopics(serverCtx, []kafka.TopicSpecification{topicSpec})

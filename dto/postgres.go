@@ -9,10 +9,11 @@ type User struct {
 }
 
 type Link struct {
-	ShortUrl  string
-	LongUrl   string
-	UserEmail string
-	ExpiresAt time.Time
+	ShortUrl     string
+	LongUrl      string
+	UserEmail    string
+	ExpiresAt    time.Time
+	TimesVisited int
 }
 
 type Subscription struct {
