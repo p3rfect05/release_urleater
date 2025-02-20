@@ -26,6 +26,7 @@ type Service interface {
 	DeleteShortLink(ctx context.Context, shortLink string, email string) error
 	CreateSubscriptions(ctx context.Context) error
 	GetTotalUserLinks(ctx context.Context, email string) (int, error)
+	GetShortLinksMatchingPattern(ctx context.Context, containsWord string, limit, offset int) (dto.SearcherMatchResult, error)
 }
 
 type SessionStore interface {
@@ -720,4 +721,56 @@ func (h *Handlers) DeleteShortLink(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, nil)
+}
+
+type GetShortLinksWithMatchingPatternRequest struct {
+	Limit        int    `json:"limit"`
+	Offset       int    `json:"offset"`
+	ContainsWord string `json:"contains_word"`
+}
+
+type GetShortLinksWithMatchingPatternResponse struct {
+	ShortLinks []string `json:"short_links"`
+	Limit      int      `json:"limit"`
+	Offset     int      `json:"offset"`
+}
+
+func (h *Handlers) GetShortLinksMatchingPattern(c echo.Context) error {
+	email, err := h.Store.RetrieveEmailFromSession(c)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	if email == "" {
+		return c.JSON(http.StatusBadRequest, redirectResponse{
+			redirectTo: "/login",
+		})
+	}
+
+	requestData := new(GetShortLinksWithMatchingPatternRequest)
+
+	ctx := c.Request().Context()
+
+	if err := c.Bind(&requestData); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	if c.Echo().Validator != nil {
+		if err := c.Validate(requestData); err != nil {
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+	}
+
+	links, err := h.Service.GetShortLinksMatchingPattern(ctx, requestData.ContainsWord, requestData.Limit, requestData.Offset)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, GetShortLinksWithMatchingPatternResponse{
+		ShortLinks: links.ShortLinks,
+		Limit:      requestData.Limit,
+		Offset:     requestData.Offset,
+	})
 }
