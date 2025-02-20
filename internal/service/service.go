@@ -12,16 +12,17 @@ import (
 	"sync"
 	"time"
 	"unicode"
+	kafkaProducerConsumer "urleater/internal/repository/kafka"
 	"urleater/internal/repository/postgresDB"
 )
 
-type Storage interface {
+type PostgresStorage interface {
 	CreateUser(ctx context.Context, email string, password string) error
 	ChangePassword(ctx context.Context, email string, password string) error
 	GetUser(ctx context.Context, email string) (*postgresDB.User, error)
 	CreateShortLink(ctx context.Context, shortLink string, longLink string, userID string) (*postgresDB.Link, error)
 	GetShortLink(ctx context.Context, shortLink string) (*postgresDB.Link, error)
-	DeleteShortLink(ctx context.Context, shortLink string, email string) error
+	DeleteShortLink(ctx context.Context, shortLink string) error
 	ExtendShortLink(ctx context.Context, shortLink string, expiresAt time.Time) (*postgresDB.Link, error)
 	GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]postgresDB.Link, error)
 	UpdateUserLinks(ctx context.Context, email string, newUrlsNumber int) (*postgresDB.User, error)
@@ -29,12 +30,32 @@ type Storage interface {
 	VerifyUserPassword(ctx context.Context, email string, password string) error
 	CreateSubscriptions(ctx context.Context) error
 	GetTotalUserLinksNumber(ctx context.Context, email string) (int, error)
+	IncrementShortLinkTimesWatchedCount(ctx context.Context, shortLink string) error
+}
+
+type RedisStorage interface {
+	DeleteLongLinkByShortLink(ctx context.Context, shortLink string) error
+	GetShortLinkByLongLink(ctx context.Context, shortLink string) (*postgresDB.Link, error)
+	SaveShortLinkToLongLink(ctx context.Context, link postgresDB.Link) error
+}
+
+type Consumer interface {
+	StartConsuming(ctx context.Context) error
+	GetConfig() kafkaProducerConsumer.KafkaConfig
+	GetWorkerChannel() chan kafkaProducerConsumer.ConsumerData
+}
+
+type Producer interface {
+	PublishMsg(msgType string, data any, topic string) error
 }
 
 var mutex = &sync.Mutex{}
 
 type Service struct {
-	storage Storage
+	postgresStorage PostgresStorage
+	redisStorage    RedisStorage
+	consumers       []Consumer
+	producer        Producer
 }
 
 var reservedNames = []string{
@@ -46,9 +67,11 @@ var reservedNames = []string{
 	"subscriptions",
 }
 
-func New(storage Storage) *Service {
+func New(postgresStorage PostgresStorage, redisStorage RedisStorage, consumers []Consumer) *Service {
 	return &Service{
-		storage: storage,
+		postgresStorage: postgresStorage,
+		redisStorage:    redisStorage,
+		consumers:       consumers,
 	}
 }
 
@@ -64,7 +87,7 @@ func (s *Service) LoginUser(ctx context.Context, email string, password string) 
 		return fmt.Errorf("LoginUser: invalid email format")
 	}
 
-	err := s.storage.VerifyUserPassword(ctx, email, password)
+	err := s.postgresStorage.VerifyUserPassword(ctx, email, password)
 
 	switch {
 	case err == nil:
@@ -135,7 +158,7 @@ func (s *Service) RegisterUser(ctx context.Context, email string, password strin
 		return fmt.Errorf("RegisterUser: invalid email format")
 	}
 
-	_, err := s.storage.GetUser(ctx, email)
+	_, err := s.postgresStorage.GetUser(ctx, email)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -146,7 +169,7 @@ func (s *Service) RegisterUser(ctx context.Context, email string, password strin
 		return fmt.Errorf("RegisterUser: user already exists")
 	}
 
-	err = s.storage.CreateUser(ctx, email, password)
+	err = s.postgresStorage.CreateUser(ctx, email, password)
 
 	if err != nil {
 		return fmt.Errorf("RegisterUser: could not create user %w", err)
@@ -196,7 +219,7 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 		for i := 0; i < 10; i++ { // генерируем ссылки, пока такие существуют
 			shortLink = GenerateShortLink()
 
-			_, err = s.storage.GetShortLink(ctx, shortLink)
+			_, err = s.postgresStorage.GetShortLink(ctx, shortLink)
 
 			switch {
 			case errors.Is(err, pgx.ErrNoRows):
@@ -218,7 +241,7 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 		}
 	}
 
-	_, err := s.storage.GetShortLink(ctx, shortLink)
+	_, err := s.postgresStorage.GetShortLink(ctx, shortLink)
 
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -228,7 +251,7 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 	default:
 		return nil, fmt.Errorf("CreateShortLink: shortlink already exists")
 	}
-	user, err := s.storage.GetUser(ctx, userEmail)
+	user, err := s.postgresStorage.GetUser(ctx, userEmail)
 
 	if err != nil {
 		return nil, fmt.Errorf("CreateShortLink: could not get user: %w", err)
@@ -238,13 +261,13 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 		return nil, fmt.Errorf("CreateShortLink: user %s has no urls", userEmail)
 	}
 
-	_, err = s.storage.UpdateUserLinks(ctx, userEmail, user.UrlsLeft-1)
+	_, err = s.postgresStorage.UpdateUserLinks(ctx, userEmail, user.UrlsLeft-1)
 
 	if err != nil {
 		return nil, fmt.Errorf("CreateShortLink: error while updating user links for short link %s | %w", shortLink, err)
 	}
 
-	link, err := s.storage.CreateShortLink(ctx, shortLink, longLink, userEmail)
+	link, err := s.postgresStorage.CreateShortLink(ctx, shortLink, longLink, userEmail)
 
 	if err != nil {
 		return nil, fmt.Errorf("CreateShortLink: error while creating a short link %s | %w", shortLink, err)
@@ -254,7 +277,7 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 }
 
 func (s *Service) GetSubscriptions(ctx context.Context) ([]postgresDB.Subscription, error) {
-	subs, err := s.storage.GetSubscriptions(ctx)
+	subs, err := s.postgresStorage.GetSubscriptions(ctx)
 
 	if err != nil {
 		return nil, fmt.Errorf("GetSubscriptions: could not get subscriptions %w", err)
@@ -264,7 +287,7 @@ func (s *Service) GetSubscriptions(ctx context.Context) ([]postgresDB.Subscripti
 }
 
 func (s *Service) GetUser(ctx context.Context, email string) (*postgresDB.User, error) {
-	user, err := s.storage.GetUser(ctx, email)
+	user, err := s.postgresStorage.GetUser(ctx, email)
 
 	if err != nil {
 		return nil, fmt.Errorf("GetUser: could not get user %w", err)
@@ -274,7 +297,7 @@ func (s *Service) GetUser(ctx context.Context, email string) (*postgresDB.User, 
 }
 
 func (s *Service) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email string, offset int, limit int) ([]postgresDB.Link, *postgresDB.User, error) {
-	user, err := s.storage.GetUser(ctx, email)
+	user, err := s.postgresStorage.GetUser(ctx, email)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("GetUserShortLinksWithOffsetAndLimit: error while getting user %s: %w", email, err)
@@ -284,7 +307,7 @@ func (s *Service) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 		limit = 50
 	}
 
-	links, err := s.storage.GetUserShortLinksWithOffsetAndLimit(ctx, email, offset, limit)
+	links, err := s.postgresStorage.GetUserShortLinksWithOffsetAndLimit(ctx, email, offset, limit)
 
 	switch {
 	case err == nil:
@@ -300,7 +323,7 @@ func (s *Service) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 }
 
 func (s *Service) GetTotalUserLinks(ctx context.Context, email string) (int, error) {
-	totalUserLinks, err := s.storage.GetTotalUserLinksNumber(ctx, email)
+	totalUserLinks, err := s.postgresStorage.GetTotalUserLinksNumber(ctx, email)
 
 	if err != nil {
 		return 0, fmt.Errorf("GetTotalUserLinks: %w", err)
@@ -310,7 +333,7 @@ func (s *Service) GetTotalUserLinks(ctx context.Context, email string) (int, err
 }
 
 func (s *Service) UpdateUserShortLinks(ctx context.Context, email string, deltaLinks int) (*postgresDB.User, error) {
-	user, err := s.storage.UpdateUserLinks(ctx, email, deltaLinks)
+	user, err := s.postgresStorage.UpdateUserLinks(ctx, email, deltaLinks)
 
 	if err != nil {
 		return nil, fmt.Errorf("UpdateUserShortLinks: error while updating user's %s shortlinks: %w by %d", email, err, deltaLinks)
@@ -320,9 +343,55 @@ func (s *Service) UpdateUserShortLinks(ctx context.Context, email string, deltaL
 }
 
 func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*postgresDB.Link, error) {
-	link, err := s.storage.GetShortLink(ctx, shortLink)
+	link, err := s.redisStorage.GetShortLinkByLongLink(ctx, shortLink)
+
 	if err != nil {
-		return nil, fmt.Errorf("GetShortLink: error while getting short link %s: %w", shortLink, err)
+		// TODO log
+		link, err = s.postgresStorage.GetShortLink(ctx, shortLink)
+
+		if err != nil {
+			return nil, fmt.Errorf("GetShortLink: error while getting short link %s: %w", shortLink, err)
+		}
+
+		err = s.redisStorage.SaveShortLinkToLongLink(ctx, *link)
+
+		if err != nil {
+			// TODO log
+		}
+	}
+
+	if link.ExpiresAt.Before(time.Now()) {
+		go func() {
+			var data struct {
+				ShortLink string `json:"short_link"`
+			}
+
+			data.ShortLink = shortLink
+
+			err := s.producer.PublishMsg("delete_expired_link", data, "short_url_topic")
+
+			if err != nil {
+				// TODO log
+				// TODO recreate consumer
+			}
+		}()
+
+		return nil, fmt.Errorf("GetShortLink: short link %s expired", shortLink)
+	} else {
+		go func() {
+			var data struct {
+				ShortLink string `json:"short_link"`
+			}
+
+			data.ShortLink = shortLink
+
+			err := s.producer.PublishMsg("increment_link_view", data, "short_url_topic")
+
+			if err != nil {
+				// TODO log
+				// TODO recreate consumer
+			}
+		}()
 	}
 
 	return link, nil
@@ -330,7 +399,7 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*postgres
 }
 
 func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email string) error {
-	err := s.storage.DeleteShortLink(ctx, shortLink, email)
+	err := s.postgresStorage.DeleteShortLink(ctx, shortLink)
 
 	if err != nil {
 		return fmt.Errorf("DeleteShortLink: error while deleting short link %s with email %s: %w", shortLink, email, err)
@@ -340,7 +409,7 @@ func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email s
 }
 
 func (s *Service) CreateSubscriptions(ctx context.Context) error {
-	err := s.storage.CreateSubscriptions(ctx)
+	err := s.postgresStorage.CreateSubscriptions(ctx)
 
 	if err != nil {
 		return fmt.Errorf("CreateSubscriptions: error while creating subscriptions %w", err)
@@ -364,4 +433,105 @@ func GenerateShortLink() string {
 
 	return string(res)
 
+}
+
+func (s *Service) StartConsumers(ctx context.Context) {
+	for i := 0; i < len(s.consumers); i++ {
+		go func(i int) {
+			for {
+				err := s.consumers[i].StartConsuming(ctx)
+
+				if err == nil {
+					return
+				}
+
+				ticker := time.NewTicker(5 * time.Second)
+
+			innerLoop:
+				for {
+					select {
+					case <-ctx.Done():
+						// TODO close consumers
+						return
+					case <-ticker.C:
+						s.consumers[i], err = kafkaProducerConsumer.NewConsumer(s.consumers[i].GetConfig(), s.consumers[i].GetWorkerChannel())
+
+						if err == nil {
+							ticker.Stop()
+
+							break innerLoop
+						}
+					}
+
+				}
+			}
+		}(i)
+	}
+}
+
+func (s *Service) StartConsumingWorkers(ctx context.Context, n int, workerChannel chan kafkaProducerConsumer.ConsumerData) {
+	for i := 0; i < n; i++ {
+		go func() {
+			for {
+				err := s.startWorker(ctx, workerChannel)
+
+				if err == nil {
+					return
+				}
+			}
+		}()
+	}
+}
+
+func (s *Service) startWorker(ctx context.Context, workerChannel chan kafkaProducerConsumer.ConsumerData) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case data := <-workerChannel:
+			err := s.processData(ctx, data.TypeOfMessage, data.Data)
+
+			if err != nil {
+				return fmt.Errorf("startWorker: error while processing data: %w", err)
+			}
+		}
+	}
+
+}
+
+func (s *Service) processData(ctx context.Context, dataType string, data any) error {
+	switch dataType {
+	case "delete_expired_link":
+		var shortLinkData struct {
+			ShortLink string `json:"short_link"`
+		}
+
+		err := s.redisStorage.DeleteLongLinkByShortLink(ctx, shortLinkData.ShortLink)
+
+		if err != nil {
+			return fmt.Errorf("processData: error while deleting short link from redis: %w", err)
+		}
+
+		err = s.postgresStorage.DeleteShortLink(ctx, shortLinkData.ShortLink)
+
+		if err != nil {
+			return fmt.Errorf("processData: error while deleting short link: %w", err)
+		}
+
+		return nil
+	case "increment_link_view":
+		var shortLinkData struct {
+			ShortLink string `json:"short_link"`
+		}
+
+		err := s.postgresStorage.IncrementShortLinkTimesWatchedCount(ctx, shortLinkData.ShortLink)
+
+		if err != nil {
+			return fmt.Errorf("processData: error while incrementing short link times: %w", err)
+		}
+
+		return nil
+	default:
+		return nil
+	}
 }

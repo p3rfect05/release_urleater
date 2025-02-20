@@ -1,0 +1,1 @@
+ALTER TABLE urls ADD COLUMN times_visited bigint;
