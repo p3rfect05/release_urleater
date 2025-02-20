@@ -25,7 +25,11 @@ func NewProducer(config KafkaConfig) (*Producer, error) {
 	}, nil
 }
 
-func (p *Producer) PublishMsg(msgType string, data any, topic string) error {
+func (p *Producer) GetConfig() KafkaConfig {
+	return p.config
+}
+
+func (p *Producer) PublishMsg(msgType string, data map[string]string, topic string) error {
 	var err error
 
 	defer func() {

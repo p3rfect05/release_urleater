@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+type driver struct{}
+
 var opts = godog.Options{
 	Format: "pretty",
 	Paths:  []string{"features"},
@@ -55,13 +57,17 @@ func configureDriver(ctx context.Context, svc *godog.Scenario) (context.Context,
 		panic(err)
 	}
 
-	ctx = context.WithValue(ctx, "driver", wd)
+	ctx = context.WithValue(ctx, driver{}, wd)
 	time.Sleep(time.Second)
 	return ctx, nil
 }
 
 func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context.Context, error) {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	if err != nil {
+		panic(err)
+	}
+
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 	time.Sleep(5 * time.Second)
 	err = driver.Quit()
 
@@ -73,7 +79,7 @@ func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context
 }
 
 func iHaveLoggedIn(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.Get(site + "/login")
 	if err != nil {
@@ -114,7 +120,7 @@ func iHaveLoggedIn(ctx context.Context) error {
 }
 
 func iClickedOnCreateShortLinkTab(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.Get(site + "/create_link")
 	if err != nil {
@@ -125,7 +131,7 @@ func iClickedOnCreateShortLinkTab(ctx context.Context) error {
 }
 
 func iTypeLongUrl(ctx context.Context, longUrl string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem1, err := driver.FindElement(selenium.ByID, "longUrl")
 	if err != nil {
@@ -141,7 +147,7 @@ func iTypeLongUrl(ctx context.Context, longUrl string) error {
 }
 
 func iTypeAlias(ctx context.Context, alias string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem1, err := driver.FindElement(selenium.ByID, "customPath")
 	if err != nil {
@@ -157,7 +163,7 @@ func iTypeAlias(ctx context.Context, alias string) error {
 }
 
 func iChooseGeneration(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByID, "customAlias")
 
@@ -174,7 +180,7 @@ func iChooseGeneration(ctx context.Context) error {
 }
 
 func iClickOnCreateButton(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByID, "generateBtn")
 
@@ -191,7 +197,7 @@ func iClickOnCreateButton(ctx context.Context) error {
 }
 
 func iGetNewlyGeneratedLink(ctx context.Context, alias string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 	err := driver.WaitWithTimeoutAndInterval(func(driver selenium.WebDriver) (bool, error) {
 		elem, err := driver.FindElement(selenium.ByID, "qr_code")
 		if err != nil {

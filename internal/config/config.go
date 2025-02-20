@@ -34,12 +34,12 @@ type Config struct {
 
 type KafkaConfigConsumer struct {
 	GroupId           string `envconfig:"kafka_group_id" required:"true"`
-	Topic             string `envconfig:"kafka_topics" required:"true"`
-	NumberOfConsumers int    `envconfig:"number_of_consumers" required:"true"`
+	Topic             string `envconfig:"kafka_topic" required:"true"`
+	NumberOfConsumers int    `envconfig:"number_of_consumers" required:"false" default:"1"`
 }
 
 type KafkaConfigProducer struct {
-	Topic string `envconfig:"kafka_topics" required:"true"`
+	Topic string `envconfig:"kafka_topic" required:"true"`
 }
 
 type KafkaConfig struct {

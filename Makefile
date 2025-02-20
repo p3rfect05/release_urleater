@@ -1,5 +1,14 @@
-run:
-	go run cmd/main.go
+.PHONY: build
+
+NAME=urleater
+
+build:
+	@mkdir -p bin
+	go build -race -o bin/${NAME} cmd/*.go
+
+run: build
+	bash -c "set -a; . ./build/local/.env; set +a; ./bin/${NAME}"
+
 
 migrate_up:
 	migrate -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" -path build/migrations up
@@ -12,6 +21,12 @@ migrate_down:
 get_coverage:
 	go test ./... -coverprofile cover.out
 	go tool cover -html=cover.out
+
+unit_tests:
+	go test -v ./tests/create_short_link/
+	go test -v ./tests/login_user/
+	go test -v ./tests/register_user/
+
 
 bdd_reg_test:
 	go test ./tests/bdd/register -test.v -godog.paths ../features/register.feature -test.run "^TestRegister/"

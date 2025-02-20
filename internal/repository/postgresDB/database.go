@@ -173,8 +173,10 @@ func (s *Storage) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 	query, args, err := s.queryBuilder.
 		Select(
 			"short_url",
+			"user_email",
 			"long_url",
 			"expires_at",
+			"times_visited",
 		).
 		From("urls").
 		Where(squirrel.Eq{"short_url": shortLink}).
@@ -185,8 +187,10 @@ func (s *Storage) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 	}
 
 	err = s.pgxPool.QueryRow(ctx, query, args...).Scan(&link.ShortUrl,
+		&link.UserEmail,
 		&link.LongUrl,
-		&link.ExpiresAt)
+		&link.ExpiresAt,
+		&link.TimesVisited)
 
 	if err != nil {
 		return nil, fmt.Errorf("GetShortLink query error | %w", err)
@@ -203,6 +207,7 @@ func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 			"l.long_url",
 			"l.user_email",
 			"l.expires_at",
+			"l.times_visited",
 		).
 		From("urls l").
 		Join("users u ON l.user_email = u.email").
@@ -231,6 +236,7 @@ func (s *Storage) GetUserShortLinksWithOffsetAndLimit(ctx context.Context, email
 			&link.LongUrl,
 			&link.UserEmail,
 			&link.ExpiresAt,
+			&link.TimesVisited,
 		)
 
 		if err != nil {
@@ -388,6 +394,8 @@ func (s *Storage) IncrementShortLinkTimesWatchedCount(ctx context.Context, short
 	if err != nil {
 		return fmt.Errorf("IncrementShortLinkTimesWatchedCount query error | %w", err)
 	}
+
+	fmt.Println(query)
 
 	_, err = s.pgxPool.Exec(ctx, query, args...)
 

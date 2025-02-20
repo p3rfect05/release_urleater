@@ -29,6 +29,7 @@ type ServerInterface interface {
 	GetUserShortLinksNumber(c echo.Context) error
 	GetLinksPage(c echo.Context) error
 	GetShortLinksMatchingPattern(c echo.Context) error
+	GetSearchLinksPage(c echo.Context) error
 }
 
 type Template struct {
@@ -74,7 +75,8 @@ func GetRoutes(si ServerInterface) *echo.Echo {
 	e.GET("/get_links", si.GetUserShortLinks)
 	e.GET("/get_total_links_number", si.GetUserShortLinksNumber)
 	e.GET("/my_links", si.GetLinksPage)
-	e.GET("/short_links", si.GetShortLinksMatchingPattern)
+	e.GET("/search_links", si.GetShortLinksMatchingPattern)
+	e.GET("/search_links_by_word", si.GetSearchLinksPage)
 	e.DELETE("/delete_link", si.DeleteShortLink)
 
 	return e

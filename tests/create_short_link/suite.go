@@ -15,8 +15,16 @@ type createShortLinkSuite struct {
 func (s *createShortLinkSuite) SetupTest() {
 	s.BaseSetupTest()
 
-	storage := mocks.NewStorage(s.T())
+	storage := mocks.NewPostgresStorage(s.T())
 	sessionStore := mocks.NewSessionStore(s.T())
+	redisStorage := mocks.NewRedisStorage(s.T())
+	searcherStorage := mocks.NewElasticSearcher(s.T())
+
+	storage.On("GetShortLink", mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows).Maybe()
+
+	redisStorage.On("SaveShortLinkToLongLink", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	searcherStorage.On("AddShortLink", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	storage.On("GetUser", mock.Anything, mock.Anything).Return(&dto.User{
 		UrlsLeft: 1,
@@ -25,8 +33,6 @@ func (s *createShortLinkSuite) SetupTest() {
 	storage.On("UpdateUserLinks", mock.Anything, mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 
 	sessionStore.On("RetrieveEmailFromSession", mock.Anything).Return("any_email", nil)
-
-	storage.On("GetShortLink", mock.Anything, mock.Anything).Return(nil, pgx.ErrNoRows)
 
 	// 1
 	longUrl1 := "https://www.gismeteo.ru/weather-moscow-4368/weekend/#dataset"
@@ -59,5 +65,5 @@ func (s *createShortLinkSuite) SetupTest() {
 
 	storage.On("CreateShortLink", mock.Anything, alias8, longUrl8, mock.Anything).Return(&createdNewLink8, nil).Once()
 
-	s.FinishSetupTest(storage, sessionStore)
+	s.FinishSetupTest(storage, redisStorage, searcherStorage, nil, nil, sessionStore)
 }

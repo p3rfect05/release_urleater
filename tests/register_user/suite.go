@@ -15,7 +15,7 @@ type registerUserSuite struct {
 func (s *registerUserSuite) SetupTest() {
 	s.BaseSetupTest()
 
-	storage := mocks.NewStorage(s.T())
+	storage := mocks.NewPostgresStorage(s.T())
 	sessionStore := mocks.NewSessionStore(s.T())
 
 	sessionStore.On("RetrieveEmailFromSession", mock.Anything).Return("", nil)
@@ -44,6 +44,6 @@ func (s *registerUserSuite) SetupTest() {
 	storage.On("GetUser", mock.Anything, "test_name1@mail.ru").
 		Return(&user3, nil).Once()
 
-	s.FinishSetupTest(storage, sessionStore)
+	s.FinishSetupTest(storage, nil, nil, nil, nil, sessionStore)
 
 }
