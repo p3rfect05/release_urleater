@@ -142,9 +142,10 @@ func (s *Storage) UpdateUserLinks(ctx context.Context, email string, newUrlsNumb
 func (s *Storage) CreateShortLink(ctx context.Context, shortLink string, longLink string, userEmail string) (*Link, error) {
 	var link Link
 	expiresAt := time.Now().UTC().Add(linkExpireIn)
+
 	query, args, err := s.queryBuilder.Insert("urls").
-		Columns("short_url", "long_url", "created_at", "user_email", "expires_at").
-		Values(shortLink, longLink, time.Now().UTC().Format(time.RFC3339), userEmail, expiresAt.Format(time.RFC3339)).
+		Columns("short_url", "long_url", "created_at", "user_email", "expires_at", "times_visited").
+		Values(shortLink, longLink, time.Now().UTC().Format(time.RFC3339), userEmail, expiresAt.Format(time.RFC3339), 0).
 		Suffix("RETURNING short_url, long_url, expires_at").
 		ToSql()
 
@@ -155,7 +156,8 @@ func (s *Storage) CreateShortLink(ctx context.Context, shortLink string, longLin
 	err = s.pgxPool.QueryRow(ctx, query, args...).Scan(
 		&link.ShortUrl,
 		&link.LongUrl,
-		&link.ExpiresAt)
+		&link.ExpiresAt,
+	)
 
 	if err != nil {
 		return nil, fmt.Errorf("CreateShortLink query error | %w", err)
@@ -266,11 +268,10 @@ func (s *Storage) GetTotalUserLinksNumber(ctx context.Context, email string) (in
 	return totalUserLinks, nil
 }
 
-func (s *Storage) DeleteShortLink(ctx context.Context, shortLink string, email string) error {
+func (s *Storage) DeleteShortLink(ctx context.Context, shortLink string) error {
 	query, args, err := s.queryBuilder.
 		Delete("urls").
 		Where(squirrel.Eq{"short_url": shortLink}).
-		Where(squirrel.Eq{"email": email}).
 		ToSql()
 
 	if err != nil {
@@ -371,6 +372,26 @@ func (s *Storage) CreateSubscriptions(ctx context.Context) error {
 
 	if err != nil {
 		return fmt.Errorf("CreateShortLink query error | %w", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) IncrementShortLinkTimesWatchedCount(ctx context.Context, shortLink string) error {
+	query, args, err := s.queryBuilder.
+		Update("urls").
+		Set("times_visited", squirrel.Expr("times_visited + 1")).
+		Where(squirrel.Eq{"short_url": shortLink}).
+		ToSql()
+
+	if err != nil {
+		return fmt.Errorf("IncrementShortLinkTimesWatchedCount query error | %w", err)
+	}
+
+	_, err = s.pgxPool.Exec(ctx, query, args...)
+
+	if err != nil {
+		return fmt.Errorf("IncrementShortLinkTimesWatchedCount query error | %w", err)
 	}
 
 	return nil
