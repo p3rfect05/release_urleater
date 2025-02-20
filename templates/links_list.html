@@ -37,6 +37,9 @@
         <li class="nav-item">
           <a class="nav-link" href="/subscriptions" id="sub">Subscriptions</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/search_links_by_word" id="search_word">Search short links</a>
+        </li>
       </ul>
       <ul class="navbar-nav ms-auto">
         <li class="nav-item">
@@ -127,6 +130,8 @@
     container.innerHTML = ''; // Очищаем контейнер
     elements = []
 
+    let displayLongLink = ''
+
     console.log("offset",  (currentPage - 1) * itemsPerPage)
     console.log("limit", itemsPerPage)
     fetch(`${domain}/get_links?offset=${(currentPage - 1) * itemsPerPage}&limit=${itemsPerPage}`).then(response => response.json())
@@ -135,8 +140,9 @@
               document.querySelector("#total_pages h1").textContent = `${currentPage}/${Math.ceil(total_links_number / itemsPerPage)}`
                     for(let i = 0;i < data.links.length;i++) {
                       let link = data.links[i]
+                      displayLongLink = link.LongUrl
                       if(link.LongUrl.length > 50) {
-                        link.LongUrl = link.LongUrl.slice(0, 50) + "..."
+                        displayLongLink = link.LongUrl.slice(0, 50) + "..."
                       }
                       let element = {
                         short_url: `${domain}/${link.ShortUrl}`,
@@ -160,7 +166,7 @@
                         </span>
                         <div class="d-flex justify-content-between align-items-center mt-2">
                             <span class="card-title h5">
-                                Original source: <a href="${element.long_url}">${element.long_url}</a>
+                                Original source: <a href="${element.long_url}">${displayLongLink}</a>
                             </span>
                             <span class="text-muted">Expires at: ${element.expires_at}</span>
                             <span class="text-muted">Times visited: ${element.times_visited}</span>

@@ -47,7 +47,7 @@ type Consumer interface {
 }
 
 type ElasticSearcher interface {
-	SearchShortLinks(ctx context.Context, word string, offset, limit int) ([]string, error)
+	SearchShortLinks(ctx context.Context, word string, limit int, offset int) ([]string, error)
 	AddShortLink(ctx context.Context, link string) error
 	DeleteShortLink(ctx context.Context, link string) error
 }

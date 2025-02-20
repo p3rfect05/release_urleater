@@ -732,9 +732,9 @@ type GetShortLinksWithMatchingPatternRequest struct {
 }
 
 type GetShortLinksWithMatchingPatternResponse struct {
-	ShortLinks []string `json:"short_links"`
-	Limit      int      `json:"limit"`
-	Offset     int      `json:"offset"`
+	ShortLinks []dto.Link `json:"links"`
+	Limit      int        `json:"limit"`
+	Offset     int        `json:"offset"`
 }
 
 func (h *Handlers) GetShortLinksMatchingPattern(c echo.Context) error {
@@ -750,28 +750,49 @@ func (h *Handlers) GetShortLinksMatchingPattern(c echo.Context) error {
 		})
 	}
 
-	requestData := new(GetShortLinksWithMatchingPatternRequest)
+	containsWord := c.QueryParam("contains_word")
 
-	ctx := c.Request().Context()
+	if containsWord == "" {
+		return c.JSON(http.StatusInternalServerError, fmt.Errorf("contains_word cannot be empty").Error())
 
-	if err := c.Bind(&requestData); err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
-	if c.Echo().Validator != nil {
-		if err := c.Validate(requestData); err != nil {
-			return c.JSON(http.StatusBadRequest, err.Error())
+	var offset int
+
+	offsetString := c.QueryParam("offset")
+
+	if offsetString == "" {
+		offset = 0
+	} else {
+		offset, err = strconv.Atoi(offsetString)
+
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, fmt.Errorf("offset must be a number").Error())
 		}
 	}
 
-	links, err := h.Service.GetShortLinksMatchingPattern(ctx, requestData.ContainsWord, requestData.Offset)
+	ctx := c.Request().Context()
+
+	links, err := h.Service.GetShortLinksMatchingPattern(ctx, containsWord, offset)
 
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
+	var shortLinks []dto.Link
+
+	for _, link := range links.ShortLinks {
+		res, err := h.Service.GetShortLink(ctx, link)
+
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, err.Error())
+		}
+
+		shortLinks = append(shortLinks, *res)
+	}
+
 	return c.JSON(http.StatusOK, GetShortLinksWithMatchingPatternResponse{
-		ShortLinks: links.ShortLinks,
+		ShortLinks: shortLinks,
 		Limit:      links.Limit,
 		Offset:     links.Offset,
 	})
@@ -818,4 +839,18 @@ type LoginWithCodeRequest struct {
 
 func (h *Handlers) SubmitLoginCode(c echo.Context) error {
 	return nil
+}
+
+func (h *Handlers) GetSearchLinksPage(c echo.Context) error {
+	email, err := h.Store.RetrieveEmailFromSession(c)
+
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
+	if email == "" {
+		return c.Redirect(http.StatusTemporaryRedirect, "/login")
+	}
+
+	return c.Render(http.StatusOK, "search_file.html", nil)
 }
