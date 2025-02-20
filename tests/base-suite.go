@@ -65,7 +65,7 @@ func (s *BaseSuite) CreateShortLink(data *handlers.CreateShortLinkRequest) ([]by
 	return s.MakeRequestWithBody(http.MethodPost, s.Handlers.CreateShortLink, string(res))
 }
 
-func (s *BaseSuite) FinishSetupTest(storage service.Storage, mockSessionStore handlers.SessionStore) {
+func (s *BaseSuite) FinishSetupTest(storage service.PostgresStorage, mockSessionStore handlers.SessionStore) {
 	httpSegSvc := service.New(storage)
 
 	hndls := handlers.Handlers{

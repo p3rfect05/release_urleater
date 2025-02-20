@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Links</title>
+    <!-- Подключение Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 56px; /* чтобы контент не перекрывался навбаром */
+        }
+        .navbar-nav .nav-link.active {
+            font-weight: bold;
+            color: #0d6efd !important;
+        }
+    </style>
+</head>
+<body>
+<!-- Навбар -->
+<nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Url Eater</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="/" id="main_page">Main Page</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/create_link" id="create_link">Create Link</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/my_links" id="my_links">My Links</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/subscriptions" id="sub">Subscriptions</a>
+                </li>
+            </ul>
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <a class="nav-link" id="username"></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/logout" id="logout-link">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Контейнер с поисковой строкой и результатами -->
+<div class="container mt-5">
+    <!-- Поисковая строка -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <input type="text" id="search-input" class="form-control" placeholder="Введите текст для поиска..."
+                   onkeydown="if(event.key==='Enter'){ currentPage = 1; searchLinks(); }">
+        </div>
+    </div>
+
+    <!-- Контейнер для отображения найденных ссылок -->
+    <div id="elements-container" class="row"></div>
+
+    <!-- Пагинация -->
+    <nav aria-label="Pagination" class="mt-4">
+        <div id="pagination-info" class="text-center mb-2"></div>
+        <ul class="pagination justify-content-center">
+            <li class="page-item">
+                <button class="page-link" id="prev-button" onclick="prevPage()">Предыдущая</button>
+            </li>
+            <li class="page-item">
+                <button class="page-link" id="next-button" onclick="nextPage()">Следующая</button>
+            </li>
+        </ul>
+    </nav>
+</div>
+
+<!-- Подключение Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Скрипт для обработки поиска и пагинации -->
+<script>
+    const domain = "http://localhost:8080";
+    const itemsPerPage = 20; // На каждой странице offset увеличивается на 20
+    let currentPage = 1;
+    let currentSearch = "";
+
+    // Функция для установки активной ссылки в навбаре
+    function setActiveLink(relative_path) {
+        const link = document.querySelector(`a[href="${relative_path}"]`);
+        if(link) {
+            link.classList.add('active');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setActiveLink(window.location.pathname);
+
+        // Пример получения имени пользователя
+        fetch(`${domain}/user`)
+            .then(response => response.json())
+            .then(data => {
+                if ("redirectTo" in data) {
+                    window.location.replace(domain + data.redirectTo);
+                } else {
+                    document.getElementById("username").textContent = data.user.Email.split("@")[0];
+                }
+            });
+    });
+
+    // Функция для выполнения поиска и отображения результатов
+    function searchLinks() {
+        currentSearch = document.getElementById('search-input').value.trim();
+        const offset = (currentPage - 1) * itemsPerPage;
+
+        fetch(`${domain}/search_links`, {
+            method: 'POST',
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                offset: offset,
+                contains_word: currentSearch
+            })
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Очищаем контейнер с результатами
+                const container = document.getElementById('elements-container');
+                container.innerHTML = "";
+
+                // Если пришли ссылки, отображаем их
+                if(data.links && data.links.length > 0) {
+                    data.links.forEach(link => {
+                        // Если оригинальная ссылка слишком длинная, обрезаем её
+                        let displayLongUrl = link.long_url;
+                        if(displayLongUrl.length > 50) {
+                            displayLongUrl = displayLongUrl.slice(0, 50) + "...";
+                        }
+
+                        container.innerHTML += `
+              <div class="col-md-12 mb-3">
+                <div class="card p-3">
+                  <span class="card-title h5">
+                    Short URL: <a href="${link.short_url}">${link.short_url}</a>
+                  </span>
+                  <div class="d-flex justify-content-between align-items-center mt-2">
+                    <span class="card-title h5">
+                      Original source: <a href="${link.long_url}">${displayLongUrl}</a>
+                    </span>
+                    <span class="text-muted">Expires at: ${link.expires_at}</span>
+                  </div>                </div>
+              </div>`;
+                    });
+                } else {
+                    container.innerHTML = `<div class="col-md-12"><p class="text-center">Ничего не найдено.</p></div>`;
+                }
+
+                // Обновляем состояние кнопок пагинации
+                document.getElementById('prev-button').disabled = currentPage === 1;
+                // Если получено меньше элементов, чем itemsPerPage, значит следующей страницы нет
+                document.getElementById('next-button').disabled = !(data.links && data.links.length === itemsPerPage);
+
+                // Обновляем информацию о текущей странице
+                document.getElementById('pagination-info').textContent = `Страница: ${currentPage}`;
+            })
+            .catch(error => {
+                console.error("Ошибка при поиске ссылок:", error);
+            });
+    }
+
+    // Функции пагинации
+    function prevPage() {
+        if(currentPage > 1) {
+            currentPage--;
+            searchLinks();
+        }
+    }
+
+    function nextPage() {
+        // Если кнопка не заблокирована, переходим на следующую страницу
+        currentPage++;
+        searchLinks();
+    }
+</script>
+</body>
+</html>
