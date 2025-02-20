@@ -7,12 +7,13 @@ import (
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"time"
+	"urleater/dto"
 )
 
 type Consumer struct {
 	config        KafkaConfig
 	consumer      *kafka.Consumer
-	workerChannel chan ConsumerData
+	workerChannel chan dto.ConsumerData
 }
 
 type KafkaConfig struct {
@@ -26,11 +27,11 @@ func (c *Consumer) GetConfig() KafkaConfig {
 	return c.config
 }
 
-func (c *Consumer) GetWorkerChannel() chan ConsumerData {
+func (c *Consumer) GetWorkerChannel() chan dto.ConsumerData {
 	return c.workerChannel
 }
 
-func NewConsumer(config KafkaConfig, workerChannel chan ConsumerData) (*Consumer, error) {
+func NewConsumer(config KafkaConfig, workerChannel chan dto.ConsumerData) (*Consumer, error) {
 	newConsumer, err := kafka.NewConsumer(config.KafkaConfig)
 
 	if err != nil {
@@ -72,7 +73,7 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 				continue
 			}
 
-			var data ConsumerData
+			var data dto.ConsumerData
 
 			err = json.Unmarshal(msg.Value, &data)
 

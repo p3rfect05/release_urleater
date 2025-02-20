@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"urleater/dto"
 )
 
 type Producer struct {
@@ -33,7 +34,7 @@ func (p *Producer) PublishMsg(msgType string, data any, topic string) error {
 		}
 	}()
 
-	byteData, err := json.Marshal(ConsumerData{
+	byteData, err := json.Marshal(dto.ConsumerData{
 		TypeOfMessage: msgType,
 		Data:          data,
 	})

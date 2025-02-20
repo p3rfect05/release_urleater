@@ -4,9 +4,8 @@ package mocks
 
 import (
 	context "context"
-	postgresDB "urleater/internal/repository/postgresDB"
-
 	mock "github.com/stretchr/testify/mock"
+	postgresDB "urleater/dto"
 
 	time "time"
 )

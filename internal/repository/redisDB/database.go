@@ -6,7 +6,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"strings"
 	"time"
-	"urleater/internal/repository/postgresDB"
+	"urleater/dto"
 )
 
 type Storage struct {
@@ -19,7 +19,7 @@ func NewStorage(redisClient *redis.Client) *Storage {
 	}
 }
 
-func (s *Storage) GetShortLinkByLongLink(ctx context.Context, shortLink string) (*postgresDB.Link, error) {
+func (s *Storage) GetShortLinkByLongLink(ctx context.Context, shortLink string) (*dto.Link, error) {
 	res, err := s.redisClient.Get(ctx, shortLink).Result()
 
 	if err != nil {
@@ -38,7 +38,7 @@ func (s *Storage) GetShortLinkByLongLink(ctx context.Context, shortLink string) 
 		return nil, fmt.Errorf("error while parsing short link expiry time %w", err)
 	}
 
-	return &postgresDB.Link{
+	return &dto.Link{
 		ShortUrl:  shortLink,
 		ExpiresAt: expiresAt,
 		UserEmail: values[2],
@@ -46,7 +46,7 @@ func (s *Storage) GetShortLinkByLongLink(ctx context.Context, shortLink string) 
 	}, nil
 }
 
-func (s *Storage) SaveShortLinkToLongLink(ctx context.Context, link postgresDB.Link) error {
+func (s *Storage) SaveShortLinkToLongLink(ctx context.Context, link dto.Link) error {
 	value := fmt.Sprintf("%s::::%s::::%s", link.LongUrl, link.ExpiresAt.Format(time.RFC3339), link.UserEmail)
 
 	_, err := s.redisClient.Set(ctx, link.ShortUrl, value, 0).Result()
