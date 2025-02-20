@@ -35,9 +35,6 @@ type SessionStore interface {
 	Save(c echo.Context, email string, session *sessions.Session) error
 }
 
-// TODO populate
-var domain string = "http://localhost:8080"
-
 type Handlers struct {
 	Service Service
 	Store   SessionStore

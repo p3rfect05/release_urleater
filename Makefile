@@ -13,6 +13,12 @@ get_coverage:
 	go test ./... -coverprofile cover.out
 	go tool cover -html=cover.out
 
+unit_tests:
+	go test -v ./tests/create_short_link/
+	go test -v ./tests/login_user/
+	go test -v ./tests/register_user/
+
+
 bdd_reg_test:
 	go test ./tests/bdd/register -test.v -godog.paths ../features/register.feature -test.run "^TestRegister/"
 

@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+type driver struct{}
+
 var opts = godog.Options{
 	Format: "pretty",
 	Paths:  []string{"features"},
@@ -54,13 +56,17 @@ func configureDriver(ctx context.Context, svc *godog.Scenario) (context.Context,
 		panic(err)
 	}
 
-	ctx = context.WithValue(ctx, "driver", wd)
+	ctx = context.WithValue(ctx, driver{}, wd)
 	time.Sleep(time.Second)
 	return ctx, nil
 }
 
 func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context.Context, error) {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	if err != nil {
+		panic(err)
+	}
+
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 	time.Sleep(5 * time.Second)
 	err = driver.Quit()
 
@@ -72,7 +78,7 @@ func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context
 }
 
 func iHaveLoggedIn(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.Get(site + "/login")
 	if err != nil {
@@ -113,7 +119,7 @@ func iHaveLoggedIn(ctx context.Context) error {
 }
 
 func iClickedOnCSubscriptionsLinkTab(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.Get(site + "/subscriptions")
 	if err != nil {
@@ -124,7 +130,7 @@ func iClickedOnCSubscriptionsLinkTab(ctx context.Context) error {
 }
 
 func iHaveSubscriptionsVisible(ctx context.Context, subs int) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.WaitWithTimeoutAndInterval(func(wd selenium.WebDriver) (bool, error) {
 		elem1, err := driver.FindElement(selenium.ByID, "bronze")

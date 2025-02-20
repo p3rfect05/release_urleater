@@ -33,7 +33,7 @@ func (s *createShortLinkSuite) TestCreateShortLink() {
 	s.Equal(http.StatusInternalServerError, code)
 
 	// 3
-	body, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
+	_, code = s.CreateShortLink(&handlers.CreateShortLinkRequest{
 		ShortURL: "any_alias",
 		LongURL:  "",
 	})

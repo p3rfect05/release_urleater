@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v4"
+	"log"
 	"math/rand"
 	"net/mail"
 	"net/url"
@@ -53,6 +54,7 @@ type ElasticSearcher interface {
 
 type Producer interface {
 	PublishMsg(msgType string, data any, topic string) error
+	GetConfig() kafkaProducerConsumer.KafkaConfig
 }
 
 var mutex = &sync.Mutex{}
@@ -274,10 +276,16 @@ func (s *Service) CreateShortLink(ctx context.Context, alias string, longLink st
 		return nil, fmt.Errorf("CreateShortLink: error while creating a short link %s | %w", shortLink, err)
 	}
 
+	err = s.redisStorage.SaveShortLinkToLongLink(ctx, *link)
+
+	if err != nil {
+		log.Println(fmt.Errorf("CreateShortLink: error while saving short link %s | %w", shortLink, err).Error())
+	}
+
 	err = s.searcher.AddShortLink(ctx, shortLink)
 
 	if err != nil {
-		// TODO log return nil, fmt.Errorf("CreateShortLink: error while adding short link %s to searcher| %w", shortLink, err)
+		log.Println(fmt.Errorf("CreateShortLink: error while adding short link %s | %v", shortLink, err).Error())
 	}
 
 	return link, nil
@@ -363,7 +371,7 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 		err = s.redisStorage.SaveShortLinkToLongLink(ctx, *link)
 
 		if err != nil {
-			// TODO log
+			log.Println(fmt.Errorf("GetShortLink: error while saving short link  to redis %s: %v", shortLink, err).Error())
 		}
 	}
 
@@ -378,9 +386,11 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 			err := s.producer.PublishMsg("delete_expired_link", data, s.producerTopic)
 
 			if err != nil {
-				// TODO log
-				// TODO recreate consumer
+				log.Println(fmt.Errorf("error while publishing to %s topic: %w", s.producerTopic, err).Error())
+
+				s.recreateProducer(ctx)
 			}
+
 		}()
 
 		return nil, fmt.Errorf("GetShortLink: short link %s expired", shortLink)
@@ -395,14 +405,38 @@ func (s *Service) GetShortLink(ctx context.Context, shortLink string) (*dto.Link
 			err := s.producer.PublishMsg("increment_link_view", data, s.producerTopic)
 
 			if err != nil {
-				// TODO log
-				// TODO recreate consumer
+				log.Println(fmt.Errorf("error while publishing to %s topic: %w", s.producerTopic, err).Error())
+
+				s.recreateProducer(ctx)
 			}
 		}()
 	}
 
 	return link, nil
 
+}
+
+func (s *Service) recreateProducer(ctx context.Context) {
+	ticker := time.NewTicker(5 * time.Second)
+
+	var err error
+
+innerLoop:
+	for {
+		select {
+		case <-ctx.Done():
+			// TODO close consumers
+			return
+		case <-ticker.C:
+			s.producer, err = kafkaProducerConsumer.NewProducer(s.producer.GetConfig())
+
+			if err == nil {
+				ticker.Stop()
+
+				break innerLoop
+			}
+		}
+	}
 }
 
 func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email string) error {
@@ -425,13 +459,13 @@ func (s *Service) DeleteShortLink(ctx context.Context, shortLink string, email s
 	err = s.redisStorage.DeleteLongLinkByShortLink(ctx, shortLink)
 
 	if err != nil {
-		// TODO log
+		log.Println(fmt.Errorf("DeleteShortLink: error while deleting short link from redis %s: %w", shortLink, err).Error())
 	}
 
 	err = s.searcher.DeleteShortLink(ctx, shortLink)
 
 	if err != nil {
-		// TODO log
+		log.Println(fmt.Errorf("DeleteShortLink: error while deleting short link from elastic%s: %w", shortLink, err).Error())
 	}
 
 	return nil
@@ -550,7 +584,7 @@ func (s *Service) processData(ctx context.Context, dataType string, data any) er
 		err = s.searcher.DeleteShortLink(ctx, shortLinkData.ShortLink)
 
 		if err != nil {
-			// TODO log
+			log.Println(fmt.Errorf("DeleteShortLink: error while deleting short link from searcher %s: %w", shortLinkData.ShortLink, err).Error())
 		}
 
 		return nil

@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+type driver struct{}
+
 var opts = godog.Options{
 	Format: "pretty",
 	Paths:  []string{"./features/login.feature"},
@@ -55,13 +57,17 @@ func configureDriver(ctx context.Context, svc *godog.Scenario) (context.Context,
 		panic(err)
 	}
 
-	ctx = context.WithValue(ctx, "driver", wd)
+	ctx = context.WithValue(ctx, driver{}, wd)
 	time.Sleep(time.Second)
 	return ctx, nil
 }
 
 func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context.Context, error) {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	if err != nil {
+		panic(err)
+	}
+
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 	time.Sleep(5 * time.Second)
 	err = driver.Quit()
 
@@ -73,7 +79,7 @@ func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context
 }
 
 func iHaveNavigatedToMainPageAndNotLoggedIn(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.Get(site + "/login")
 	if err != nil {
@@ -100,7 +106,7 @@ func iHaveNavigatedToMainPageAndNotLoggedIn(ctx context.Context) error {
 }
 
 func iTypeEmail(ctx context.Context, email string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 	elem, err := driver.FindElement(selenium.ByID, "email")
 	if err != nil {
 		panic(err)
@@ -115,7 +121,7 @@ func iTypeEmail(ctx context.Context, email string) error {
 }
 
 func iTypePassword(ctx context.Context, password string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByID, "password")
 	if err != nil {
@@ -131,7 +137,7 @@ func iTypePassword(ctx context.Context, password string) error {
 }
 
 func iClickedLogin(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.WaitWithTimeoutAndInterval(func(driver selenium.WebDriver) (bool, error) {
 		elem, err := driver.FindElement(selenium.ByCSSSelector, "body > div > form > button")
@@ -160,7 +166,7 @@ func iClickedLogin(ctx context.Context) error {
 }
 
 func iShouldSeeTheMainPageAndBeLoggedIn(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByCSSSelector, "#user_links > div > div > h1")
 	if err != nil {
@@ -188,7 +194,4 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Then(`^I should see the main page and be logged in$`, iShouldSeeTheMainPageAndBeLoggedIn)
 	ctx.After(disableDriver)
 
-}
-func iTypeEmailEmail(ctx context.Context, email string) (context.Context, error) {
-	return ctx, godog.ErrPending
 }

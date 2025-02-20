@@ -7,8 +7,6 @@ import (
 	"regexp"
 )
 
-const dateFormat = "2006-01-02"
-
 type CustomValidator struct {
 	validator *validator.Validate
 }

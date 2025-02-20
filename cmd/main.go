@@ -124,7 +124,7 @@ func main() {
 	sessionStore := handlers.NewPostgresSessionStore(store)
 
 	if err != nil {
-		log.Fatalf(err.Error())
+		log.Fatal(err.Error())
 	}
 
 	defer store.Close()

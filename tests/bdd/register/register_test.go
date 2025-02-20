@@ -13,6 +13,8 @@ import (
 	"time"
 )
 
+type driver struct{}
+
 var opts = godog.Options{
 	Format: "pretty",
 	Paths:  []string{"features"},
@@ -55,14 +57,19 @@ func configureDriver(ctx context.Context, svc *godog.Scenario) (context.Context,
 		panic(err)
 	}
 
-	ctx = context.WithValue(ctx, "driver", wd)
+	ctx = context.WithValue(ctx, driver{}, wd)
 	time.Sleep(time.Second)
 	return ctx, nil
 }
 
 func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context.Context, error) {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	if err != nil {
+		panic(err)
+	}
+
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 	time.Sleep(5 * time.Second)
+
 	err = driver.Quit()
 
 	if err != nil {
@@ -73,7 +80,7 @@ func disableDriver(ctx context.Context, svc *godog.Scenario, err error) (context
 }
 
 func IHaveNavigatedToMainPageAndNotLoggedIn(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	err := driver.Get(site + "/register")
 	if err != nil {
@@ -98,7 +105,7 @@ func IHaveNavigatedToMainPageAndNotLoggedIn(ctx context.Context) error {
 }
 
 func typeEmail(ctx context.Context, email string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByID, "email")
 	if err != nil {
@@ -114,7 +121,7 @@ func typeEmail(ctx context.Context, email string) error {
 }
 
 func typePassword(ctx context.Context, password string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByID, "password")
 	if err != nil {
@@ -130,7 +137,7 @@ func typePassword(ctx context.Context, password string) error {
 }
 
 func typeAgainPassword(ctx context.Context, password string) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByID, "confirm-password")
 	if err != nil {
@@ -146,7 +153,7 @@ func typeAgainPassword(ctx context.Context, password string) error {
 }
 
 func clickRegister(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByCSSSelector, "#registrationForm > button")
 	if err != nil {
@@ -162,7 +169,7 @@ func clickRegister(ctx context.Context) error {
 }
 
 func checkIfOnMainPageAndLoggedIn(ctx context.Context) error {
-	driver := ctx.Value("driver").(selenium.WebDriver)
+	driver := ctx.Value(driver{}).(selenium.WebDriver)
 
 	elem, err := driver.FindElement(selenium.ByXPATH, "//*[@id=\"user_links\"]/div/div/h1")
 	if err != nil {
