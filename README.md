@@ -13,6 +13,7 @@ This project provides the ability to perform the following functions:
   - provide the generated QR code for the created short link.
 
 # To run:
+<code>brew install golang-migrate</code>
 <code>make run-docker</code>\
 
 # To run tests: 
