@@ -1,38 +1,5 @@
 definitions:
-  handlers.CreateShortLinkResponse:
-    properties:
-      link:
-        $ref: '#/definitions/postgresDB.Link'
-    type: object
-  handlers.DeleteShortLinkRequest:
-    properties:
-      short_link:
-        type: string
-    type: object
-  handlers.GetSubscriptionsResponse:
-    properties:
-      subscriptions:
-        items:
-          $ref: '#/definitions/postgresDB.Subscription'
-        type: array
-    type: object
-  handlers.GetUserResponse:
-    properties:
-      user:
-        $ref: '#/definitions/postgresDB.User'
-    type: object
-  handlers.GetUserShortLinksResponse:
-    properties:
-      links:
-        items:
-          $ref: '#/definitions/postgresDB.Link'
-        type: array
-      user:
-        $ref: '#/definitions/postgresDB.User'
-    type: object
-  handlers.redirectResponse:
-    type: object
-  postgresDB.Link:
+  dto.Link:
     properties:
       expiresAt:
         type: string
@@ -40,10 +7,12 @@ definitions:
         type: string
       shortUrl:
         type: string
+      timesVisited:
+        type: integer
       userEmail:
         type: string
     type: object
-  postgresDB.Subscription:
+  dto.Subscription:
     properties:
       id:
         type: integer
@@ -52,7 +21,7 @@ definitions:
       totalUrls:
         type: integer
     type: object
-  postgresDB.User:
+  dto.User:
     properties:
       email:
         type: string
@@ -61,259 +30,610 @@ definitions:
       urlsLeft:
         type: integer
     type: object
+  handlers.CreateShortLinkRequest:
+    properties:
+      long_url:
+        type: string
+      short_url:
+        type: string
+    required:
+    - long_url
+    type: object
+  handlers.CreateShortLinkResponse:
+    properties:
+      link:
+        $ref: '#/definitions/dto.Link'
+    type: object
+  handlers.FormattedLink:
+    properties:
+      expiresAt:
+        type: string
+      longUrl:
+        type: string
+      shortUrl:
+        type: string
+      timesVisited:
+        type: integer
+      userEmail:
+        type: string
+    type: object
+  handlers.GetLoginWithCodeRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  handlers.GetShortLinksWithMatchingPatternResponse:
+    properties:
+      limit:
+        type: integer
+      links:
+        items:
+          $ref: '#/definitions/dto.Link'
+        type: array
+      offset:
+        type: integer
+    type: object
+  handlers.GetSubscriptionsResponse:
+    properties:
+      subscriptions:
+        items:
+          $ref: '#/definitions/dto.Subscription'
+        type: array
+    type: object
+  handlers.GetUserResponse:
+    properties:
+      user:
+        $ref: '#/definitions/dto.User'
+    type: object
+  handlers.GetUserShortLinksResponse:
+    properties:
+      links:
+        items:
+          $ref: '#/definitions/handlers.FormattedLink'
+        type: array
+      user:
+        $ref: '#/definitions/dto.User'
+    type: object
+  handlers.GetUserShortLinksTotalNumberResponse:
+    properties:
+      total_user_short_links:
+        type: integer
+    type: object
+  handlers.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handlers.LoginWithCodeRequest:
+    properties:
+      code:
+        type: string
+      email:
+        type: string
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handlers.UpdateUserShortLinksRequest:
+    properties:
+      delta_links:
+        type: integer
+      email:
+        type: string
+    required:
+    - delta_links
+    - email
+    type: object
+  handlers.UpdateUserShortLinksResponse:
+    properties:
+      user:
+        $ref: '#/definitions/dto.User'
+    type: object
 info:
   contact: {}
 paths:
   /:
     get:
-      parameters:
-      - description: Short link to get
-        in: path
-        name: ShortLink
-        required: true
-        type: string
-      responses:
-        "307":
-          description: Temporary Redirect
-          schema:
-            $ref: '#/definitions/handlers.DeleteShortLinkRequest'
-        "400":
-          description: Bad Request
-          schema:
-            type: ""
-      summary: Gets short link
-  /create_link:
-    get:
+      description: Отрисовывает главную страницу, если пользователь авторизован, иначе
+        перенаправляет на /login.
       produces:
       - text/html
       responses:
         "200":
-          description: OK
-        "307":
-          description: Temporary Redirect
+          description: HTML главной страницы
+          schema:
+            type: string
         "500":
-          description: Internal Server Error
-      summary: Gets create link page HTML
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Рендер главной страницы
+      tags:
+      - Страницы
+  /{short_link}:
+    get:
+      description: Перенаправляет пользователя с короткой ссылки на соответствующий
+        длинный URL.
+      parameters:
+      - description: Короткая ссылка
+        in: path
+        name: short_link
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "302":
+          description: Перенаправление на длинный URL
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Редирект короткой ссылки
+      tags:
+      - Ссылки
+  /admin/update-links:
+    put:
+      consumes:
+      - application/json
+      description: Администратор может изменить число доступных ссылок для указанного
+        пользователя.
+      parameters:
+      - description: Данные для обновления
+        in: body
+        name: UpdateUserShortLinksRequest
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateUserShortLinksRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Обновлённые данные пользователя
+          schema:
+            $ref: '#/definitions/handlers.UpdateUserShortLinksResponse'
+        "400":
+          description: Неверный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера или неавторизованный доступ
+          schema:
+            type: string
+      summary: Обновление количества коротких ссылок пользователя
+      tags:
+      - Администрирование
+  /links:
+    get:
+      description: Отрисовывает страницу со списком ссылок, если пользователь авторизован,
+        иначе перенаправляет на /login.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML страницы ссылок
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Рендер страницы ссылок
+      tags:
+      - Страницы
+  /login:
+    get:
+      description: Отрисовывает HTML-страницу для входа пользователя.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML страницы логина
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Рендер страницы логина
+      tags:
+      - Страницы
     post:
       consumes:
       - application/json
+      description: Аутентифицирует пользователя по email и паролю, создавая сессию.
       parameters:
-      - description: Short URL
+      - description: Данные для логина
         in: body
-        name: short_url
+        name: LoginRequest
         required: true
         schema:
-          type: string
-      - description: Long URL
-        in: body
-        name: long_url
-        required: true
-        schema:
-          type: string
+          $ref: '#/definitions/handlers.LoginRequest'
+      produces:
+      - application/json
       responses:
         "200":
-          description: OK
+          description: Перенаправление на главную страницу
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверный запрос или уже авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Вход пользователя
+      tags:
+      - Аутентификация
+  /login/code:
+    post:
+      consumes:
+      - application/json
+      description: Инициирует процесс входа по коду, отправляя код на указанный email.
+      parameters:
+      - description: Запрос на получение кода для входа
+        in: body
+        name: GetLoginWithCodeRequest
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.GetLoginWithCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Код отправлен
+        "400":
+          description: Неверный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Запрос кода для входа
+      tags:
+      - Аутентификация
+  /login/code/submit:
+    post:
+      consumes:
+      - application/json
+      description: Проверяет введённый код для входа и аутентифицирует пользователя.
+      parameters:
+      - description: Данные для входа по коду
+        in: body
+        name: LoginWithCodeRequest
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginWithCodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Вход выполнен успешно
+        "400":
+          description: Неверный запрос
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Подтверждение кода входа
+      tags:
+      - Аутентификация
+  /logout:
+    get:
+      description: Завершает сессию пользователя и перенаправляет на /login.
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Перенаправление на /login
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Выход пользователя
+      tags:
+      - Аутентификация
+  /register:
+    get:
+      description: Отрисовывает HTML-страницу для регистрации нового пользователя.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML страницы регистрации
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Рендер страницы регистрации
+      tags:
+      - Страницы
+    post:
+      consumes:
+      - application/json
+      description: Регистрирует нового пользователя по email и паролю и создаёт сессию.
+      parameters:
+      - description: Данные для регистрации
+        in: body
+        name: RegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Перенаправление на главную страницу
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Неверный запрос или уже авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Регистрация пользователя
+      tags:
+      - Аутентификация
+  /search:
+    get:
+      description: Отрисовывает HTML-страницу для поиска коротких ссылок.
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: HTML страницы поиска ссылок
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Рендер страницы поиска ссылок
+      tags:
+      - Страницы
+  /shortlink:
+    delete:
+      description: Удаляет указанную короткую ссылку для авторизованного пользователя.
+      parameters:
+      - description: Короткая ссылка для удаления
+        in: query
+        name: short_link
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Ссылка успешно удалена
+        "400":
+          description: Неверный запрос или неавторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Удаление короткой ссылки
+      tags:
+      - Ссылки
+    post:
+      consumes:
+      - application/json
+      description: Создаёт короткую ссылку, сопоставляя её с длинным URL для авторизованного
+        пользователя.
+      parameters:
+      - description: Данные для создания ссылки
+        in: body
+        name: CreateShortLinkRequest
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateShortLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Созданная ссылка
           schema:
             $ref: '#/definitions/handlers.CreateShortLinkResponse'
         "400":
-          description: Bad Request
+          description: Неверный запрос или неавторизован
           schema:
-            type: ""
+            type: string
         "500":
-          description: Internal Server Error
+          description: Ошибка сервера
           schema:
-            type: ""
-      summary: Creates a link
-  /delete_link:
-    delete:
-      parameters:
-      - description: Short link to delete
-        in: body
-        name: ShortLink
-        required: true
-        schema:
-          type: string
+            type: string
+      summary: Создание короткой ссылки
+      tags:
+      - Ссылки
+  /shortlink/create:
+    get:
+      description: Отрисовывает HTML-страницу для создания новой короткой ссылки.
+      produces:
+      - text/html
       responses:
         "200":
-          description: OK
+          description: HTML страницы создания ссылки
           schema:
-            $ref: '#/definitions/handlers.DeleteShortLinkRequest'
-        "400":
-          description: Bad Request
-          schema:
-            type: ""
+            type: string
         "500":
-          description: Internal Server Error
+          description: Ошибка сервера
           schema:
-            type: ""
-      summary: Tries to delete the short link
-  /get_links:
+            type: string
+      summary: Рендер страницы создания короткой ссылки
+      tags:
+      - Страницы
+  /shortlinks/search:
     get:
-      consumes:
-      - application/json
+      description: Ищет короткие ссылки, содержащие указанное слово, с поддержкой
+        пагинации.
       parameters:
-      - description: Limit of a number of user's short links
+      - description: Подстрока для поиска
         in: query
-        name: limit
+        name: contains_word
         required: true
-        type: integer
-      - description: Maximum amount of links to show
+        type: string
+      - description: Сдвиг для пагинации
         in: query
         name: offset
-        required: true
         type: integer
+      produces:
+      - application/json
       responses:
         "200":
-          description: OK
+          description: Результат поиска
           schema:
-            $ref: '#/definitions/handlers.GetUserShortLinksResponse'
+            $ref: '#/definitions/handlers.GetShortLinksWithMatchingPatternResponse'
         "400":
-          description: Bad Request
+          description: Неверный запрос или неавторизован
           schema:
-            type: ""
+            type: string
         "500":
-          description: Internal Server Error
+          description: Ошибка сервера
           schema:
-            type: ""
-      summary: Gets user's short links
-  /get_subscriptions:
+            type: string
+      summary: Поиск коротких ссылок по шаблону
+      tags:
+      - Ссылки
+  /subscriptions:
     get:
+      description: Возвращает список подписок для авторизованного пользователя.
+      produces:
+      - application/json
       responses:
         "200":
-          description: OK
+          description: Список подписок
           schema:
             $ref: '#/definitions/handlers.GetSubscriptionsResponse'
         "400":
-          description: Bad Request
+          description: Неверный запрос или неавторизован
           schema:
-            type: ""
+            type: string
         "500":
-          description: Internal Server Error
+          description: Ошибка сервера
           schema:
-            type: ""
-      summary: Gets all subscriptions
-  /login:
+            type: string
+      summary: Получение подписок
+      tags:
+      - Подписки
+  /subscriptions/page:
     get:
+      description: Отрисовывает HTML-страницу для просмотра и управления подписками.
       produces:
       - text/html
       responses:
         "200":
-          description: OK
-        "307":
-          description: Temporary Redirect
+          description: HTML страницы подписок
+          schema:
+            type: string
         "500":
-          description: Internal Server Error
-      summary: Gets login page HTML
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Username
-        in: body
-        name: username
-        required: true
-        schema:
-          type: string
-      - description: Password
-        in: body
-        name: password
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
+          description: Ошибка сервера
           schema:
-            $ref: '#/definitions/handlers.redirectResponse'
-        "400":
-          description: Bad Request
-          schema:
-            type: ""
-        "500":
-          description: Internal Server Error
-          schema:
-            type: ""
-      summary: Logins a user
-  /logout:
-    get:
-      responses:
-        "307":
-          description: Temporary Redirect
-          schema:
-            $ref: '#/definitions/handlers.redirectResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            type: ""
-      summary: Logs out a user
-  /register:
-    get:
-      produces:
-      - text/html
-      responses:
-        "200":
-          description: OK
-        "307":
-          description: Temporary Redirect
-        "500":
-          description: Internal Server Error
-      summary: Gets register page HTML
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Username
-        in: body
-        name: username
-        required: true
-        schema:
-          type: string
-      - description: Password
-        in: body
-        name: password
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.redirectResponse'
-        "400":
-          description: Bad Request
-          schema:
-            type: ""
-        "500":
-          description: Internal Server Error
-          schema:
-            type: ""
-      summary: Registers a user
-  /subscriptions:
-    get:
-      produces:
-      - text/html
-      responses:
-        "200":
-          description: OK
-        "307":
-          description: Temporary Redirect
-        "500":
-          description: Internal Server Error
-      summary: Gets subscription page HTML
+            type: string
+      summary: Рендер страницы подписок
+      tags:
+      - Страницы
   /user:
     get:
+      description: Возвращает информацию об авторизованном пользователе.
+      produces:
+      - application/json
       responses:
         "200":
-          description: OK
+          description: Данные пользователя
           schema:
             $ref: '#/definitions/handlers.GetUserResponse'
         "400":
-          description: Bad Request
+          description: Неверный запрос или неавторизован
           schema:
-            type: ""
+            type: string
         "500":
-          description: Internal Server Error
+          description: Ошибка сервера
           schema:
-            type: ""
-      summary: Gets user from session
+            type: string
+      summary: Получение данных пользователя
+      tags:
+      - Пользователь
+  /user/shortlinks:
+    get:
+      description: Возвращает список коротких ссылок текущего пользователя с поддержкой
+        пагинации.
+      parameters:
+      - description: Лимит записей
+        in: query
+        name: limit
+        type: integer
+      - description: Сдвиг для пагинации
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список ссылок и данные пользователя
+          schema:
+            $ref: '#/definitions/handlers.GetUserShortLinksResponse'
+        "400":
+          description: Неверный запрос или неавторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Получение коротких ссылок пользователя
+      tags:
+      - Ссылки
+  /user/shortlinks/number:
+    get:
+      description: Возвращает общее количество коротких ссылок, созданных пользователем.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Общее число ссылок
+          schema:
+            $ref: '#/definitions/handlers.GetUserShortLinksTotalNumberResponse'
+        "400":
+          description: Неверный запрос или неавторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Получение общего числа коротких ссылок пользователя
+      tags:
+      - Ссылки
 swagger: "2.0"

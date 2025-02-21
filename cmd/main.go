@@ -28,6 +28,10 @@ import (
 
 const port = ":8080"
 
+func init() {
+	time.Sleep(10 * time.Second)
+}
+
 func main() {
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 

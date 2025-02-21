@@ -6,197 +6,97 @@
     "paths": {
         "/": {
             "get": {
-                "summary": "Gets short link",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Short link to get",
-                        "name": "ShortLink",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "307": {
-                        "description": "Temporary Redirect",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DeleteShortLinkRequest"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": ""
-                        }
-                    }
-                }
-            }
-        },
-        "/create_link": {
-            "get": {
+                "description": "Отрисовывает главную страницу, если пользователь авторизован, иначе перенаправляет на /login.",
                 "produces": [
                     "text/html"
                 ],
-                "summary": "Gets create link page HTML",
+                "tags": [
+                    "Страницы"
+                ],
+                "summary": "Рендер главной страницы",
                 "responses": {
                     "200": {
-                        "description": "OK"
-                    },
-                    "307": {
-                        "description": "Temporary Redirect"
+                        "description": "HTML главной страницы",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     "500": {
-                        "description": "Internal Server Error"
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
-            },
-            "post": {
+            }
+        },
+        "/admin/update-links": {
+            "put": {
+                "description": "Администратор может изменить число доступных ссылок для указанного пользователя.",
                 "consumes": [
                     "application/json"
                 ],
-                "summary": "Creates a link",
-                "parameters": [
-                    {
-                        "description": "Short URL",
-                        "name": "short_url",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "Long URL",
-                        "name": "long_url",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.CreateShortLinkResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": ""
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": ""
-                        }
-                    }
-                }
-            }
-        },
-        "/delete_link": {
-            "delete": {
-                "summary": "Tries to delete the short link",
-                "parameters": [
-                    {
-                        "description": "Short link to delete",
-                        "name": "ShortLink",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.DeleteShortLinkRequest"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": ""
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": ""
-                        }
-                    }
-                }
-            }
-        },
-        "/get_links": {
-            "get": {
-                "consumes": [
+                "produces": [
                     "application/json"
                 ],
-                "summary": "Gets user's short links",
+                "tags": [
+                    "Администрирование"
+                ],
+                "summary": "Обновление количества коротких ссылок пользователя",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Limit of a number of user's short links",
-                        "name": "limit",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum amount of links to show",
-                        "name": "offset",
-                        "in": "query",
-                        "required": true
+                        "description": "Данные для обновления",
+                        "name": "UpdateUserShortLinksRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.UpdateUserShortLinksRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Обновлённые данные пользователя",
                         "schema": {
-                            "$ref": "#/definitions/handlers.GetUserShortLinksResponse"
+                            "$ref": "#/definitions/handlers.UpdateUserShortLinksResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Неверный запрос",
                         "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Ошибка сервера или неавторизованный доступ",
                         "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     }
                 }
             }
         },
-        "/get_subscriptions": {
+        "/links": {
             "get": {
-                "summary": "Gets all subscriptions",
+                "description": "Отрисовывает страницу со списком ссылок, если пользователь авторизован, иначе перенаправляет на /login.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Страницы"
+                ],
+                "summary": "Рендер страницы ссылок",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "HTML страницы ссылок",
                         "schema": {
-                            "$ref": "#/definitions/handlers.GetSubscriptionsResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Ошибка сервера",
                         "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     }
                 }
@@ -204,64 +104,158 @@
         },
         "/login": {
             "get": {
+                "description": "Отрисовывает HTML-страницу для входа пользователя.",
                 "produces": [
                     "text/html"
                 ],
-                "summary": "Gets login page HTML",
+                "tags": [
+                    "Страницы"
+                ],
+                "summary": "Рендер страницы логина",
                 "responses": {
                     "200": {
-                        "description": "OK"
-                    },
-                    "307": {
-                        "description": "Temporary Redirect"
+                        "description": "HTML страницы логина",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     "500": {
-                        "description": "Internal Server Error"
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             },
             "post": {
+                "description": "Аутентифицирует пользователя по email и паролю, создавая сессию.",
                 "consumes": [
                     "application/json"
                 ],
-                "summary": "Logins a user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Аутентификация"
+                ],
+                "summary": "Вход пользователя",
                 "parameters": [
                     {
-                        "description": "Username",
-                        "name": "username",
+                        "description": "Данные для логина",
+                        "name": "LoginRequest",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "Password",
-                        "name": "password",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/handlers.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Перенаправление на главную страницу",
                         "schema": {
-                            "$ref": "#/definitions/handlers.redirectResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Неверный запрос или уже авторизован",
                         "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Ошибка сервера",
                         "schema": {
-                            "type": ""
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/login/code": {
+            "post": {
+                "description": "Инициирует процесс входа по коду, отправляя код на указанный email.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Аутентификация"
+                ],
+                "summary": "Запрос кода для входа",
+                "parameters": [
+                    {
+                        "description": "Запрос на получение кода для входа",
+                        "name": "GetLoginWithCodeRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetLoginWithCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Код отправлен"
+                    },
+                    "400": {
+                        "description": "Неверный запрос",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/login/code/submit": {
+            "post": {
+                "description": "Проверяет введённый код для входа и аутентифицирует пользователя.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Аутентификация"
+                ],
+                "summary": "Подтверждение кода входа",
+                "parameters": [
+                    {
+                        "description": "Данные для входа по коду",
+                        "name": "LoginWithCodeRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.LoginWithCodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Вход выполнен успешно"
+                    },
+                    "400": {
+                        "description": "Неверный запрос",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -269,18 +263,25 @@
         },
         "/logout": {
             "get": {
-                "summary": "Logs out a user",
+                "description": "Завершает сессию пользователя и перенаправляет на /login.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Аутентификация"
+                ],
+                "summary": "Выход пользователя",
                 "responses": {
-                    "307": {
-                        "description": "Temporary Redirect",
+                    "302": {
+                        "description": "Перенаправление на /login",
                         "schema": {
-                            "$ref": "#/definitions/handlers.redirectResponse"
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Ошибка сервера",
                         "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     }
                 }
@@ -288,64 +289,253 @@
         },
         "/register": {
             "get": {
+                "description": "Отрисовывает HTML-страницу для регистрации нового пользователя.",
                 "produces": [
                     "text/html"
                 ],
-                "summary": "Gets register page HTML",
+                "tags": [
+                    "Страницы"
+                ],
+                "summary": "Рендер страницы регистрации",
                 "responses": {
                     "200": {
-                        "description": "OK"
-                    },
-                    "307": {
-                        "description": "Temporary Redirect"
+                        "description": "HTML страницы регистрации",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     "500": {
-                        "description": "Internal Server Error"
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             },
             "post": {
+                "description": "Регистрирует нового пользователя по email и паролю и создаёт сессию.",
                 "consumes": [
                     "application/json"
                 ],
-                "summary": "Registers a user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Аутентификация"
+                ],
+                "summary": "Регистрация пользователя",
                 "parameters": [
                     {
-                        "description": "Username",
-                        "name": "username",
+                        "description": "Данные для регистрации",
+                        "name": "RegisterRequest",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "string"
-                        }
-                    },
-                    {
-                        "description": "Password",
-                        "name": "password",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/handlers.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Перенаправление на главную страницу",
                         "schema": {
-                            "$ref": "#/definitions/handlers.redirectResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Неверный запрос или уже авторизован",
                         "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Ошибка сервера",
                         "schema": {
-                            "type": ""
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/search": {
+            "get": {
+                "description": "Отрисовывает HTML-страницу для поиска коротких ссылок.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Страницы"
+                ],
+                "summary": "Рендер страницы поиска ссылок",
+                "responses": {
+                    "200": {
+                        "description": "HTML страницы поиска ссылок",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/shortlink": {
+            "post": {
+                "description": "Создаёт короткую ссылку, сопоставляя её с длинным URL для авторизованного пользователя.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ссылки"
+                ],
+                "summary": "Создание короткой ссылки",
+                "parameters": [
+                    {
+                        "description": "Данные для создания ссылки",
+                        "name": "CreateShortLinkRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateShortLinkRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Созданная ссылка",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.CreateShortLinkResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос или неавторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет указанную короткую ссылку для авторизованного пользователя.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ссылки"
+                ],
+                "summary": "Удаление короткой ссылки",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Короткая ссылка для удаления",
+                        "name": "short_link",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Ссылка успешно удалена"
+                    },
+                    "400": {
+                        "description": "Неверный запрос или неавторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/shortlink/create": {
+            "get": {
+                "description": "Отрисовывает HTML-страницу для создания новой короткой ссылки.",
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "Страницы"
+                ],
+                "summary": "Рендер страницы создания короткой ссылки",
+                "responses": {
+                    "200": {
+                        "description": "HTML страницы создания ссылки",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/shortlinks/search": {
+            "get": {
+                "description": "Ищет короткие ссылки, содержащие указанное слово, с поддержкой пагинации.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ссылки"
+                ],
+                "summary": "Поиск коротких ссылок по шаблону",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Подстрока для поиска",
+                        "name": "contains_word",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Сдвиг для пагинации",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Результат поиска",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetShortLinksWithMatchingPatternResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос или неавторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -353,43 +543,202 @@
         },
         "/subscriptions": {
             "get": {
+                "description": "Возвращает список подписок для авторизованного пользователя.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Подписки"
+                ],
+                "summary": "Получение подписок",
+                "responses": {
+                    "200": {
+                        "description": "Список подписок",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetSubscriptionsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос или неавторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/subscriptions/page": {
+            "get": {
+                "description": "Отрисовывает HTML-страницу для просмотра и управления подписками.",
                 "produces": [
                     "text/html"
                 ],
-                "summary": "Gets subscription page HTML",
+                "tags": [
+                    "Страницы"
+                ],
+                "summary": "Рендер страницы подписок",
                 "responses": {
                     "200": {
-                        "description": "OK"
-                    },
-                    "307": {
-                        "description": "Temporary Redirect"
+                        "description": "HTML страницы подписок",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     "500": {
-                        "description": "Internal Server Error"
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             }
         },
         "/user": {
             "get": {
-                "summary": "Gets user from session",
+                "description": "Возвращает информацию об авторизованном пользователе.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Пользователь"
+                ],
+                "summary": "Получение данных пользователя",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Данные пользователя",
                         "schema": {
                             "$ref": "#/definitions/handlers.GetUserResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Неверный запрос или неавторизован",
                         "schema": {
-                            "type": ""
+                            "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Ошибка сервера",
                         "schema": {
-                            "type": ""
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/shortlinks": {
+            "get": {
+                "description": "Возвращает список коротких ссылок текущего пользователя с поддержкой пагинации.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ссылки"
+                ],
+                "summary": "Получение коротких ссылок пользователя",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Лимит записей",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Сдвиг для пагинации",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Список ссылок и данные пользователя",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetUserShortLinksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос или неавторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/user/shortlinks/number": {
+            "get": {
+                "description": "Возвращает общее количество коротких ссылок, созданных пользователем.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ссылки"
+                ],
+                "summary": "Получение общего числа коротких ссылок пользователя",
+                "responses": {
+                    "200": {
+                        "description": "Общее число ссылок",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.GetUserShortLinksTotalNumberResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос или неавторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/{short_link}": {
+            "get": {
+                "description": "Перенаправляет пользователя с короткой ссылки на соответствующий длинный URL.",
+                "produces": [
+                    "text/plain"
+                ],
+                "tags": [
+                    "Ссылки"
+                ],
+                "summary": "Редирект короткой ссылки",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Короткая ссылка",
+                        "name": "short_link",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Перенаправление на длинный URL",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -397,59 +746,7 @@
         }
     },
     "definitions": {
-        "handlers.CreateShortLinkResponse": {
-            "type": "object",
-            "properties": {
-                "link": {
-                    "$ref": "#/definitions/postgresDB.Link"
-                }
-            }
-        },
-        "handlers.DeleteShortLinkRequest": {
-            "type": "object",
-            "properties": {
-                "short_link": {
-                    "type": "string"
-                }
-            }
-        },
-        "handlers.GetSubscriptionsResponse": {
-            "type": "object",
-            "properties": {
-                "subscriptions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/postgresDB.Subscription"
-                    }
-                }
-            }
-        },
-        "handlers.GetUserResponse": {
-            "type": "object",
-            "properties": {
-                "user": {
-                    "$ref": "#/definitions/postgresDB.User"
-                }
-            }
-        },
-        "handlers.GetUserShortLinksResponse": {
-            "type": "object",
-            "properties": {
-                "links": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/postgresDB.Link"
-                    }
-                },
-                "user": {
-                    "$ref": "#/definitions/postgresDB.User"
-                }
-            }
-        },
-        "handlers.redirectResponse": {
-            "type": "object"
-        },
-        "postgresDB.Link": {
+        "dto.Link": {
             "type": "object",
             "properties": {
                 "expiresAt": {
@@ -461,12 +758,15 @@
                 "shortUrl": {
                     "type": "string"
                 },
+                "timesVisited": {
+                    "type": "integer"
+                },
                 "userEmail": {
                     "type": "string"
                 }
             }
         },
-        "postgresDB.Subscription": {
+        "dto.Subscription": {
             "type": "object",
             "properties": {
                 "id": {
@@ -480,7 +780,7 @@
                 }
             }
         },
-        "postgresDB.User": {
+        "dto.User": {
             "type": "object",
             "properties": {
                 "email": {
@@ -491,6 +791,178 @@
                 },
                 "urlsLeft": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.CreateShortLinkRequest": {
+            "type": "object",
+            "required": [
+                "long_url"
+            ],
+            "properties": {
+                "long_url": {
+                    "type": "string"
+                },
+                "short_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.CreateShortLinkResponse": {
+            "type": "object",
+            "properties": {
+                "link": {
+                    "$ref": "#/definitions/dto.Link"
+                }
+            }
+        },
+        "handlers.FormattedLink": {
+            "type": "object",
+            "properties": {
+                "expiresAt": {
+                    "type": "string"
+                },
+                "longUrl": {
+                    "type": "string"
+                },
+                "shortUrl": {
+                    "type": "string"
+                },
+                "timesVisited": {
+                    "type": "integer"
+                },
+                "userEmail": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.GetLoginWithCodeRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.GetShortLinksWithMatchingPatternResponse": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.Link"
+                    }
+                },
+                "offset": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.GetSubscriptionsResponse": {
+            "type": "object",
+            "properties": {
+                "subscriptions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.Subscription"
+                    }
+                }
+            }
+        },
+        "handlers.GetUserResponse": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/dto.User"
+                }
+            }
+        },
+        "handlers.GetUserShortLinksResponse": {
+            "type": "object",
+            "properties": {
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.FormattedLink"
+                    }
+                },
+                "user": {
+                    "$ref": "#/definitions/dto.User"
+                }
+            }
+        },
+        "handlers.GetUserShortLinksTotalNumberResponse": {
+            "type": "object",
+            "properties": {
+                "total_user_short_links": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.LoginRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.LoginWithCodeRequest": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.UpdateUserShortLinksRequest": {
+            "type": "object",
+            "required": [
+                "delta_links",
+                "email"
+            ],
+            "properties": {
+                "delta_links": {
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.UpdateUserShortLinksResponse": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/dto.User"
                 }
             }
         }

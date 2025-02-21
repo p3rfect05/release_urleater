@@ -11,3 +11,21 @@ This project provides the ability to perform the following functions:
   - provide three-month billing based on the number of short links available for creation for one user;
   - provide notification to the user about the expiration of the short link;
   - provide the generated QR code for the created short link.
+
+# To run:
+<code>make run-docker</code>\
+
+# To run tests: 
+<code> make unit_tests </code>
+
+# tg: @daniil_astafiev
+
+# Stack:
+### Golang
+### PostgreSQL
+### Kafka
+### Redis
+### Elastic Search
+### Docker
+### 
+

@@ -11,7 +11,7 @@ run: build
 
 
 migrate_up:
-	migrate -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" -path build/migrations up
+	migrate -database "postgres://postgres:postgres@postgres-urleater:5432/postgres?sslmode=disable" -path build/migrations up
 
 
 migrate_down:
@@ -75,3 +75,7 @@ test_all:
 
 
 
+run-docker:
+	docker compose up -d
+	sleep 10
+	migrate -database "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable" -path ./migrations up
