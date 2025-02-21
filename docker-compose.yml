@@ -9,9 +9,14 @@ services:
     env_file:
       - ./build/local/docker.env
     command:
-      - "./urleater"
+      - "./entrypoint.sh"
     networks:
       - backend
+    depends_on:
+      - postgres-urleater
+      - elasticsearch
+      - kafka
+      - redis
   postgres-urleater:
     image: postgres:14-alpine
     container_name: postgres-urleater
@@ -99,10 +104,6 @@ services:
       - "9092:9092"
     networks:
       - backend
-    volumes:
-      - kafka_data:/var/lib/kafka/data
-
-
 
 
 networks:

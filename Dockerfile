@@ -32,6 +32,9 @@ COPY --from=builder /app/bin/${NAME} .
 # Копируем HTML-файлы (например, они лежат в папке "static")
 COPY --from=builder /app/templates ./templates
 
+COPY --from=builder /app/build/migrations ./migrations
+COPY --from=builder /app/entrypoint.sh ./entrypoint.sh
+
+RUN chmod +x entrypoint.sh
+
 COPY --from=builder /app/build/local/docker.env .env
-
-
